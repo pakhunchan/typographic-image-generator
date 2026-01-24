@@ -43,14 +43,22 @@ def hex_to_rgb(hex_color):
 def get_font(size):
     """Get a bold font at the specified size."""
     try:
+        # Prioritize thick/bold fonts for better density and "poster" look
         font_paths = [
+            # macOS paths (Impact/Arial Black are very thick)
+            '/System/Library/Fonts/Supplemental/Impact.ttf',
+            '/System/Library/Fonts/Supplemental/Arial Black.ttf',
+            '/Library/Fonts/Impact.ttf',
+            '/Library/Fonts/Arial Black.ttf',
             '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-            '/System/Library/Fonts/Helvetica.ttc',
             '/Library/Fonts/Arial Bold.ttf',
-            '/Library/Fonts/Arial.ttf',
+            '/System/Library/Fonts/Helvetica.ttc', # Often has bold, but fallback
+            # Common names
+            'Impact',
+            'Arial Black',
             'Arial Bold',
-            'Arial',
-            'Helvetica',
+            'Helvetica-Bold',
+            'DejaVuSans-Bold',
         ]
         for font_path in font_paths:
             try:
@@ -114,31 +122,37 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
     # Multi-pass strategy:
     # 1. Very Large (Featured/Big) - Anchor points
     # 2. Large
-    # 3. Medium
-    # 4. Small
-    # 5. Tiny (Fillers)
-    # 6. Micro (gap fillers)
-    # 7. Nano (dust)
-    # 8. Pico (atomic)
-    size_multipliers = [3.0, 2.0, 1.2, 0.8, 0.6, 0.4, 0.3, 0.25]
+    # 3. Medium-Large
+    # 4. Medium
+    # 5. Medium
+    # 6. Small
+    # 7. Tiny (Fillers)
+    # 8. Micro (gap fillers)
+    # Reduced max size (was 2.4 -> 2.0) for smoother gradient. Favor medium pass.
+    size_multipliers = [2.0, 1.7, 1.4, 1.1, 0.9, 0.7, 0.5, 0.4]
     
     # Base density target affects attempts
-    # User requested even HIGHER density. Previously 40. Now 10.
     total_pixels = width * height
-    base_attempts = int(total_pixels / 10) 
+    base_attempts = int(total_pixels / 20) 
     
     # Minimum distance between identical words (as fraction of image diagonal)
     min_dist_ratio = 0.2 
     img_diag = np.sqrt(width**2 + height**2)
     
     for pass_idx, size_mult in enumerate(size_multipliers):
-        current_font_size = max(5, int(base_font_size * size_mult)) # Allow even smaller font
+        current_font_size = max(6, int(base_font_size * size_mult)) # Allow even smaller font
         font = get_font(current_font_size)
         
-        # Increase attempts for smaller sizes
-        attempts = base_attempts * (pass_idx + 1)
-        if size_mult < 1.0:
-            attempts *= 5 
+        # Calculate attempts:
+        # Give significantly more attempts to medium sizes (1.4 - 0.7)
+        attempts_factor = pass_idx + 1
+        
+        if 0.7 <= size_mult <= 1.4:
+            attempts_factor *= 4  # Boost medium attempts heavily
+        elif size_mult < 0.5:
+             attempts_factor *= 3 # Moderate boost for tiny
+        
+        attempts = base_attempts * attempts_factor 
         
         # Reduce proximity requirement for smaller passes
         current_min_dist = max(50, img_diag * min_dist_ratio * size_mult)
