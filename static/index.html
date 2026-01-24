@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typographic Portrait Generator</title>
+    <meta name="description" content="Convert images into beautiful typographic art. Fill shapes with your own words and phrases.">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="app-container">
+        <header class="header">
+            <h1>Typographic Portrait Generator</h1>
+            <p>Transform images into stunning word art</p>
+        </header>
+
+        <main class="main-content">
+            <aside class="control-panel">
+                <section class="control-section">
+                    <h2>Image</h2>
+                    <div class="upload-zone" id="uploadZone">
+                        <input type="file" id="imageInput" accept="image/*" hidden>
+                        <div class="upload-placeholder" id="uploadPlaceholder">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <span>Click or drag to upload</span>
+                        </div>
+                        <img id="previewImage" class="preview-image hidden" alt="Preview">
+                    </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Threshold</h2>
+                    <div class="slider-container">
+                        <input type="range" id="thresholdSlider" min="0" max="255" value="128">
+                        <span class="slider-value" id="thresholdValue">128</span>
+                    </div>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="invertCheckbox">
+                        <span class="checkmark"></span>
+                        Invert dark/light
+                    </label>
+                </section>
+
+                <section class="control-section">
+                    <h2>Style</h2>
+                    <div class="form-group">
+                        <label for="colorScheme">Color Scheme</label>
+                        <select id="colorScheme">
+                            <option value="warm_red">Warm Red</option>
+                            <option value="ocean_blue">Ocean Blue</option>
+                            <option value="forest_green">Forest Green</option>
+                            <option value="sunset">Sunset</option>
+                            <option value="monochrome">Monochrome</option>
+                            <option value="custom">Custom...</option>
+                        </select>
+                        <div class="color-preview" id="colorPreview"></div>
+                    </div>
+                    <div class="form-group custom-colors hidden" id="customColorsGroup">
+                        <label>Custom Colors (comma separated hex)</label>
+                        <input type="text" id="customColors" placeholder="#FF0000, #00FF00, #0000FF">
+                    </div>
+                    <div class="form-group">
+                        <label for="fontSize">Font Size</label>
+                        <select id="fontSize">
+                            <option value="small">Small</option>
+                            <option value="medium" selected>Medium</option>
+                            <option value="large">Large</option>
+                        </select>
+                    </div>
+                </section>
+
+                <section class="control-section">
+                    <h2>Words</h2>
+                    <p class="hint">One word or phrase per line. Prefix with * for featured (larger)</p>
+                    <textarea id="wordsInput" placeholder="*LOVE
+SMILE
+BE HAPPY
+DON'T WORRY"></textarea>
+                    <div class="word-count" id="wordCount">0 words</div>
+                </section>
+
+                <button class="btn btn-primary" id="generateBtn">
+                    <span class="btn-text">Generate Word Art</span>
+                    <span class="btn-loading hidden">
+                        <svg class="spinner" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4"/>
+                        </svg>
+                        Generating...
+                    </span>
+                </button>
+            </aside>
+
+            <section class="preview-section">
+                <h2>Preview</h2>
+                <div class="result-container" id="resultContainer">
+                    <div class="result-placeholder" id="resultPlaceholder">
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                            <circle cx="8.5" cy="8.5" r="1.5"/>
+                            <polyline points="21 15 16 10 5 21"/>
+                        </svg>
+                        <p>Your typographic portrait will appear here</p>
+                    </div>
+                    <img id="resultImage" class="result-image hidden" alt="Generated typographic portrait">
+                </div>
+                <button class="btn btn-secondary hidden" id="downloadBtn">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    Download PNG
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
