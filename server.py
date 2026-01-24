@@ -98,6 +98,10 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
     all_words = featured + regular if featured or regular else ['TEXT']
     rgb_colors = [hex_to_rgb(c) for c in colors]
     
+    # Track word positions to avoid clustering similar words
+    # Dictionary mapping word -> list of (x, y) coordinates
+    word_positions = {}
+
     # Track occupied regions
     # logical OR of placed text boxes
     occupied = np.zeros((height, width), dtype=bool)
@@ -114,25 +118,34 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
     # 4. Small
     # 5. Tiny (Fillers)
     # 6. Micro (gap fillers)
-    size_multipliers = [3.0, 2.0, 1.2, 0.8, 0.6, 0.4]
+    # 7. Nano (dust)
+    # 8. Pico (atomic)
+    size_multipliers = [3.0, 2.0, 1.2, 0.8, 0.6, 0.4, 0.3, 0.25]
     
     # Base density target affects attempts
-    # Calculate density target based on image size to keep performance reasonable
+    # User requested even HIGHER density. Previously 40. Now 10.
     total_pixels = width * height
-    base_attempts = int(total_pixels / 200) # Increased base attempts significantly
+    base_attempts = int(total_pixels / 10) 
+    
+    # Minimum distance between identical words (as fraction of image diagonal)
+    min_dist_ratio = 0.2 
+    img_diag = np.sqrt(width**2 + height**2)
     
     for pass_idx, size_mult in enumerate(size_multipliers):
-        current_font_size = max(8, int(base_font_size * size_mult))
+        current_font_size = max(5, int(base_font_size * size_mult)) # Allow even smaller font
         font = get_font(current_font_size)
         
-        # Increase attempts for smaller sizes to ensure filling
+        # Increase attempts for smaller sizes
         attempts = base_attempts * (pass_idx + 1)
         if size_mult < 1.0:
-            attempts *= 4 # Much more attempts for small words
+            attempts *= 5 
+        
+        # Reduce proximity requirement for smaller passes
+        current_min_dist = max(50, img_diag * min_dist_ratio * size_mult)
             
         # Optimization: Fail fast if we can't find spots
         consecutive_failures = 0
-        max_failures = 20000 # Allow more failures before giving up on a size
+        max_failures = 80000 
         
         # Temp draw for measurement
         dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
@@ -148,8 +161,43 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             if y >= height or x >= width or not mask[y, x] or occupied[y, x]:
                 consecutive_failures += 1
                 continue
-                
-            word = random.choice(all_words)
+            
+            # Select word avoiding proximity
+            word = None
+            # Try a few times to pick a word that satisfies distance check
+            for _ in range(5):
+                 candidate = random.choice(all_words)
+                 
+                 # Check distance to existing instances of this word
+                 # Only check words placed in the same or previous (larger) passes
+                 # Actually just check global history for this word
+                 if candidate not in word_positions:
+                     word = candidate
+                     break
+                     
+                 # Check distances
+                 too_close = False
+                 for px, py in word_positions[candidate]:
+                     dist = np.sqrt((x-px)**2 + (y-py)**2)
+                     if dist < current_min_dist:
+                         too_close = True
+                         break
+                 
+                 if not too_close:
+                     word = candidate
+                     break
+            
+            # If we couldn't find a good word, just pick one (better to fill than leave empty?)
+            # Or skip? User prefers distribution. Let's skip position if we really can't find a valid word.
+            # But that might leave holes.
+            # Compromise: if size is small, relax constraint
+            if not word:
+                if size_mult < 0.6:
+                    word = random.choice(all_words)
+                else:
+                    consecutive_failures += 1
+                    continue
+
             is_featured = word in featured
             
             # Boost featured words size in early passes
@@ -160,7 +208,9 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             angle = random.choice(angles)
             
             # Padding - smaller padding for smaller text to fit tighter
-            if size_mult <= 0.6:
+            if size_mult <= 0.4:
+                padding = 0
+            elif size_mult <= 0.6:
                 padding = 1
             elif size_mult <= 0.8:
                 padding = 2
@@ -247,6 +297,11 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             
             # Mark occupancy
             occupied[top:bottom, left:right] = True
+            
+            # Record position for proximity check
+            if word not in word_positions:
+                word_positions[word] = []
+            word_positions[word].append((x, y))
             
             consecutive_failures = 0
             color_idx += 1
