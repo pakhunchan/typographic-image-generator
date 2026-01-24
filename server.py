@@ -102,9 +102,7 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
     # logical OR of placed text boxes
     occupied = np.zeros((height, width), dtype=bool)
     
-    # Restrict angles to Horizontal and Vertical (0, 90)
-    # Note: Pillow rotate 90 is counter-clockwise. 
-    # Vertical text reading up is 90, reading down is -90/270.
+    # Restrict angles to Horizontal (0) and Vertical (90)
     angles = [0, 0, 0, 90] 
     
     color_idx = 0
@@ -136,6 +134,9 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
         consecutive_failures = 0
         max_failures = 20000 # Allow more failures before giving up on a size
         
+        # Temp draw for measurement
+        dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
+        
         for _ in range(attempts):
             if consecutive_failures > max_failures:
                 break
@@ -158,14 +159,6 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
 
             angle = random.choice(angles)
             
-            # Measure text
-            # We need a temporary measure
-            dummy = Image.new('L', (1, 1))
-            d_draw = ImageDraw.Draw(dummy)
-            bbox = d_draw.textbbox((0, 0), word, font=this_pass_font)
-            text_w = bbox[2] - bbox[0]
-            text_h = bbox[3] - bbox[1]
-            
             # Padding - smaller padding for smaller text to fit tighter
             if size_mult <= 0.6:
                 padding = 1
@@ -174,19 +167,42 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             else:
                 padding = 4
             
-            # Effective box size
-            box_w = text_w
-            box_h = text_h
+            # Measure text using anchor='mm' (middle-middle) to center it at (0,0)
+            # bbox will be typically negative left/top and positive right/bottom
+            raw_bbox = dummy_draw.textbbox((0, 0), word, font=this_pass_font, anchor='mm')
+            # raw_bbox is (x0, y0, x1, y1)
             
-            # Handle rotation dimensions
+            # Add padding to the bbox
+            # We want the OCCUPIED region to include padding
+            box_x0 = raw_bbox[0] - padding
+            box_y0 = raw_bbox[1] - padding
+            box_x1 = raw_bbox[2] + padding
+            box_y1 = raw_bbox[3] + padding
+            
+            # Rotate bounds if 90 degrees
             if angle == 90 or angle == -90:
-                box_w, box_h = box_h, box_w
+                # Rotate (x, y) -> (-y, x)
+                # But for a rect centered at 0:
+                # New width = old height, New height = old width
+                w = box_x1 - box_x0
+                h = box_y1 - box_y0
+                
+                # Re-center
+                box_x0 = -h // 2
+                box_x1 = h // 2
+                box_y0 = -w // 2
+                box_y1 = w // 2
             
-            # Centered coordinates
-            left = x - box_w // 2
-            top = y - box_h // 2
-            right = left + box_w
-            bottom = top + box_h
+            # Calculate world coordinates
+            # Since we measured relative to (0,0) as center, and x,y is center:
+            left = x + int(box_x0)
+            right = x + int(box_x1)
+            top = y + int(box_y0)
+            bottom = y + int(box_y1)
+            
+            # Fix empty slices if right <= left due to integer division
+            if right <= left: right = left + 1
+            if bottom <= top: bottom = top + 1
             
             # Boundary checks
             if left < 0 or top < 0 or right > width or bottom > height:
@@ -194,55 +210,45 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
                 continue
             
             # Mask Coverage Check
-            # We want the text to be deeply inside the mask
-            # Check corners and center? Or full slice?
-            # Numpy slice is fast.
             mask_slice = mask[top:bottom, left:right]
-            
-            # We require HIGH coverage (mostly inside the black area)
-            # But "filling gaps" might mean we are near edges.
-            # Let's say 90% of the box area must be in the mask
             if np.mean(mask_slice) < 0.9: 
                 consecutive_failures += 1
                 continue
             
             # Occupancy Check - STRICT NO OVERLAP
-            # Check if any pixel in the target box is already occupied
             occupied_slice = occupied[top:bottom, left:right]
             if np.any(occupied_slice):
                 consecutive_failures += 1
                 continue
             
-            # If we got here, we can place it!
-            consecutive_failures = 0
+            # Calculate actual text dimensions for image creation
+            # We use the raw untransformed bbox for the text image size
+            text_w = raw_bbox[2] - raw_bbox[0]
+            text_h = raw_bbox[3] - raw_bbox[1]
             
-            # Generate image to paste (re-generate with actual size/rotation)
-            # Create slightly larger canvas to avoid clipping during rotation
-            dim = max(text_w, text_h) + padding * 2
+            # Ensure canvas is large enough for rotation
+            dim = max(text_w, text_h) + padding * 2 + 10 # Extra margin for safety
             txt_img = Image.new('RGBA', (dim, dim), (0,0,0,0))
             txt_draw = ImageDraw.Draw(txt_img)
             
-            # Draw centered
-            txt_draw.text(((dim - text_w)//2, (dim - text_h)//2), word, font=this_pass_font, fill=rgb_colors[color_idx % len(rgb_colors)] + (255,))
+            # Draw text at center
+            txt_draw.text((dim/2, dim/2), word, font=this_pass_font, anchor='mm', fill=rgb_colors[color_idx % len(rgb_colors)] + (255,))
             
             if angle != 0:
                 txt_img = txt_img.rotate(angle)
             
-            # Crop to exact bounding box to minimize "invisible" overlap
-            # But simple rotate might have anti-aliasing.
-            # We calculated `box_w, box_h` earlier based on geometry.
-            # Let's trust our geometry calculation for the occupancy mask, 
-            # but paste the image centered.
-            
+            # Now paste. 
+            # We drawn center at (dim/2, dim/2).
+            # We want center to be at (x, y).
             paste_x = x - dim // 2
             paste_y = y - dim // 2
             
             output.paste(txt_img, (paste_x, paste_y), txt_img)
             
             # Mark occupancy
-            # Add a tiny buffer? No, user wants dense.
             occupied[top:bottom, left:right] = True
             
+            consecutive_failures = 0
             color_idx += 1
             
     return output.convert('RGB')
