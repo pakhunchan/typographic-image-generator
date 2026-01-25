@@ -1,13 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Typographic Portrait Generator</title>
-    <meta name="description" content="Convert images into beautiful typographic art. Fill shapes with your own words and phrases.">
+    <meta name="description"
+        content="Convert images into beautiful typographic art. Fill shapes with your own words and phrases.">
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
     <div class="app-container">
         <header class="header">
@@ -22,10 +25,11 @@
                     <div class="upload-zone" id="uploadZone">
                         <input type="file" id="imageInput" accept="image/*" hidden>
                         <div class="upload-placeholder" id="uploadPlaceholder">
-                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                                <polyline points="17 8 12 3 7 8"/>
-                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                <polyline points="17 8 12 3 7 8" />
+                                <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
                             <span>Click or drag to upload</span>
                         </div>
@@ -88,7 +92,8 @@ DON'T WORRY"></textarea>
                     <span class="btn-text">Generate Word Art</span>
                     <span class="btn-loading hidden">
                         <svg class="spinner" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none" stroke-dasharray="31.4 31.4"/>
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
+                                stroke-dasharray="31.4 31.4" />
                         </svg>
                         Generating...
                     </span>
@@ -99,10 +104,11 @@ DON'T WORRY"></textarea>
                 <h2>Preview</h2>
                 <div class="result-container" id="resultContainer">
                     <div class="result-placeholder" id="resultPlaceholder">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                            <circle cx="8.5" cy="8.5" r="1.5"/>
-                            <polyline points="21 15 16 10 5 21"/>
+                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="1.5">
+                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+                            <circle cx="8.5" cy="8.5" r="1.5" />
+                            <polyline points="21 15 16 10 5 21" />
                         </svg>
                         <p>Your typographic portrait will appear here</p>
                     </div>
@@ -110,16 +116,18 @@ DON'T WORRY"></textarea>
                 </div>
                 <button class="btn btn-secondary hidden" id="downloadBtn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
-                        <polyline points="7 10 12 15 17 10"/>
-                        <line x1="12" y1="15" x2="12" y2="3"/>
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
                     </svg>
                     Download PNG
                 </button>
+                <a id="hiddenDownloadLink" style="display: none;"></a>
             </section>
         </main>
     </div>
 
-    <script src="app.js"></script>
+    <script src="app.js?v=7"></script>
 </body>
+
 </html>

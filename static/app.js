@@ -34,6 +34,7 @@ const downloadBtn = document.getElementById('downloadBtn');
 
 // State
 let currentImageData = null;
+let originalFileName = 'image';
 
 // Initialize
 function init() {
@@ -93,6 +94,11 @@ function handleImageSelect(e) {
 }
 
 function handleFile(file) {
+    // Store original filename without extension
+    const name = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
+    // Sanitize and truncate to max 32 chars for practical length
+    originalFileName = name.replace(/[^a-zA-Z0-9-_]/g, '_').substring(0, 32);
+
     const reader = new FileReader();
     reader.onload = (e) => {
         currentImageData = e.target.result;
@@ -220,16 +226,41 @@ function setLoading(loading) {
     }
 }
 
+
 // Download
 function handleDownload() {
-    if (!resultImage.src) return;
+    if (!resultImage.src || resultImage.src.includes('placeholder')) {
+        console.error('No result image to download');
+        return;
+    }
 
-    const link = document.createElement('a');
-    link.href = resultImage.src;
-    link.download = 'typographic-portrait.png';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    try {
+        console.log("Initiating download...");
+        const fileName = `PHC_typographic_${originalFileName}.png`;
+
+        // Create a temporary link element
+        const link = document.createElement('a');
+
+        // Direct Data URI approach - safer for small/medium images to avoid Blob quirks
+        link.href = resultImage.src;
+        link.download = fileName;
+
+        // Append to body
+        document.body.appendChild(link);
+
+        // Trigger click
+        link.click();
+
+        // Clean up with longer delay
+        setTimeout(() => {
+            document.body.removeChild(link);
+            console.log("Download cleanup complete");
+        }, 1000);
+
+    } catch (error) {
+        console.error('Download failed:', error);
+        alert('Download error: ' + error.message);
+    }
 }
 
 // Listen for custom color changes
