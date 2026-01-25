@@ -192,21 +192,54 @@ async function handleGenerate() {
             }),
         });
 
-        const data = await response.json();
-
-        if (data.error) {
-            throw new Error(data.error);
+        if (!response.ok) {
+            const errText = await response.text();
+            throw new Error(`Server Error: ${response.status} ${errText}`);
         }
 
-        // Show result
-        resultImage.src = data.result;
-        resultImage.classList.remove('hidden');
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+
+        // Show result placeholder initially (to prepare for first frame)
         resultPlaceholder.classList.add('hidden');
+        resultImage.classList.remove('hidden');
+        downloadBtn.classList.add('hidden'); // Hide until finished
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // Process complete lines
+            const lines = buffer.split('\n');
+            buffer = lines.pop(); // Keep incomplete chunk
+
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                try {
+                    const data = JSON.parse(line);
+                    if (data.error) {
+                        throw new Error(data.error);
+                    }
+                    if (data.result) {
+                        resultImage.src = data.result;
+                    }
+                } catch (e) {
+                    console.warn("Error parsing stream line:", e);
+                }
+            }
+        }
+
+        // Stream finished
         downloadBtn.classList.remove('hidden');
 
     } catch (error) {
         console.error('Generation failed:', error);
         alert('Generation failed: ' + error.message);
+        resultPlaceholder.classList.remove('hidden');
+        resultImage.classList.add('hidden');
     } finally {
         setLoading(false);
     }

@@ -7,7 +7,9 @@ Converts images into typographic art by filling dark/light regions with text.
 import io
 import base64
 import random
-from flask import Flask, request, jsonify, send_from_directory
+import json
+import time
+from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
@@ -164,7 +166,16 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
         # Temp draw for measurement
         dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
         
-        for _ in range(attempts):
+        last_yield_time = time.time()
+        
+        for i in range(attempts):
+            # Frequent yield check for smooth streaming
+            if i % 1000 == 0:
+                current_time = time.time()
+                if current_time - last_yield_time > 0.2:
+                    yield output.convert('RGB')
+                    last_yield_time = current_time
+
             if consecutive_failures > max_failures:
                 break
                 
@@ -320,7 +331,14 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             consecutive_failures = 0
             color_idx += 1
             
-    return output.convert('RGB')
+            consecutive_failures = 0
+            color_idx += 1
+            
+        # Yield the current state of the image after each pass
+        yield output.convert('RGB')
+    
+    # Final yield to ensure we catch everything
+    yield output.convert('RGB')
 
 
 def process_image(image_data, threshold, invert, words, color_scheme, font_size_key, custom_colors=None):
@@ -347,7 +365,6 @@ def process_image(image_data, threshold, invert, words, color_scheme, font_size_
     # Resize if needed
     width, height = image.size
     # Resize to target dimension (Upscale or Downscale)
-    width, height = image.size
     ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
     # Only resize if the ratio is significantly different from 1 (avoid minor resampling artifacts if exact)
     if abs(ratio - 1.0) > 0.001:
@@ -371,16 +388,15 @@ def process_image(image_data, threshold, invert, words, color_scheme, font_size_
     scale = min(width, height) / 500
     base_font_size = max(10, int(base_size * scale))
     
-    # Generate typographic image
-    result = place_words_dense(width, height, mask, words, colors, base_font_size)
-    
-    # Convert to PNG
-    output_buffer = io.BytesIO()
-    result.save(output_buffer, format='PNG')
-    output_buffer.seek(0)
-    
-    result_base64 = base64.b64encode(output_buffer.read()).decode('utf-8')
-    return f"data:image/png;base64,{result_base64}"
+    # Generate typographic image (Streaming)
+    for intermediate_result in place_words_dense(width, height, mask, words, colors, base_font_size):
+        # Convert to PNG
+        output_buffer = io.BytesIO()
+        intermediate_result.save(output_buffer, format='PNG')
+        output_buffer.seek(0)
+        
+        result_base64 = base64.b64encode(output_buffer.read()).decode('utf-8')
+        yield f"data:image/png;base64,{result_base64}"
 
 
 @app.route('/')
@@ -411,12 +427,21 @@ def generate():
         if not words:
             return jsonify({'error': 'No words provided'}), 400
         
-        result = process_image(
-            image_data, threshold, invert, words,
-            color_scheme, font_size, custom_colors
-        )
-        
-        return jsonify({'result': result})
+        def generate_stream():
+            try:
+                for result_uri in process_image(
+                    image_data, threshold, invert, words,
+                    color_scheme, font_size, custom_colors
+                ):
+                    # Format as Server-Sent Event or just ndjson
+                    # We'll use a simple line-delimited JSON for ease of parsing
+                    yield json.dumps({'result': result_uri}) + '\n'
+            except Exception as e:
+                import traceback
+                traceback.print_exc()
+                yield json.dumps({'error': str(e)}) + '\n'
+
+        return Response(generate_stream(), mimetype='application/x-ndjson')
     
     except Exception as e:
         import traceback
