@@ -130,12 +130,14 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
     # 6. Small
     # 7. Tiny (Fillers)
     # 8. Micro (gap fillers)
-    # Reduced max size (was 2.4 -> 2.0) for smoother gradient. Favor medium pass.
-    size_multipliers = [2.0, 1.7, 1.4, 1.1, 0.9, 0.7, 0.5, 0.4]
+    # 8. Micro (gap fillers)
+    # 9. Nano (finishing touches)
+    size_multipliers = [1.9, 1.7, 1.5, 1.3, 1.1, 0.9, 0.7, 0.5, 0.3]
     
     # Base density target affects attempts
     total_pixels = width * height
-    base_attempts = int(total_pixels / 20) 
+    # Reduce density by ~20% (Increase divisor from 20 to 25)
+    base_attempts = int(total_pixels / 25) 
     
     # Minimum distance between identical words (as fraction of image diagonal)
     min_dist_ratio = 0.2 
@@ -146,15 +148,23 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
         font = get_font(current_font_size)
         
         # Calculate attempts:
-        # Give significantly more attempts to medium sizes (1.4 - 0.7)
-        attempts_factor = pass_idx + 1
+        # User-defined density distribution:
+        # Largest 1/3 (Indices 0-2): x1.4
+        # Middle 1/3 (Indices 3-5):  x1.8
+        # Smallest 1/3 (Indices 6-8): x0.8
         
-        if 0.7 <= size_mult <= 1.4:
-            attempts_factor *= 4  # Boost medium attempts heavily
-        elif size_mult < 0.5:
-             attempts_factor *= 3 # Moderate boost for tiny
+        base_factor = pass_idx + 1
         
-        attempts = base_attempts * attempts_factor 
+        if pass_idx <= 2:   # 1.9, 1.7, 1.5
+            boost = 1.4
+        elif pass_idx <= 5: # 1.3, 1.1, 0.9
+            boost = 1.8
+        else:               # 0.7, 0.5, 0.3
+            boost = 0.8
+            
+        attempts_factor = base_factor * boost
+        
+        attempts = int(base_attempts * attempts_factor) 
         
         # Reduce proximity requirement for smaller passes
         current_min_dist = max(50, img_diag * min_dist_ratio * size_mult)
@@ -233,14 +243,15 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             angle = random.choice(angles)
             
             # Padding - smaller padding for smaller text to fit tighter
+            # Padding - increased to ensure text doesn't touch
             if size_mult <= 0.4:
-                padding = 0
+                padding = 1  # Was 0
             elif size_mult <= 0.6:
-                padding = 1
+                padding = 2  # Was 1
             elif size_mult <= 0.8:
-                padding = 2
+                padding = 5  # Was 2
             else:
-                padding = 4
+                padding = 10 # Was 4
             
             # Measure text using anchor='mm' (middle-middle) to center it at (0,0)
             # bbox will be typically negative left/top and positive right/bottom
