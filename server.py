@@ -31,7 +31,7 @@ FONT_SIZES = {
     'large': 20,
 }
 
-MAX_DIMENSION = 1024
+MAX_DIMENSION = 2048
 
 
 def hex_to_rgb(hex_color):
@@ -346,8 +346,11 @@ def process_image(image_data, threshold, invert, words, color_scheme, font_size_
     
     # Resize if needed
     width, height = image.size
-    if width > MAX_DIMENSION or height > MAX_DIMENSION:
-        ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+    # Resize to target dimension (Upscale or Downscale)
+    width, height = image.size
+    ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
+    # Only resize if the ratio is significantly different from 1 (avoid minor resampling artifacts if exact)
+    if abs(ratio - 1.0) > 0.001:
         new_size = (int(width * ratio), int(height * ratio))
         image = image.resize(new_size, Image.LANCZOS)
         width, height = new_size
