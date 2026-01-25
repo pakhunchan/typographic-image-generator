@@ -23,6 +23,7 @@ const colorScheme = document.getElementById('colorScheme');
 const colorPreview = document.getElementById('colorPreview');
 const customColorsGroup = document.getElementById('customColorsGroup');
 const customColors = document.getElementById('customColors');
+const backgroundColor = document.getElementById('backgroundColor');
 const fontSize = document.getElementById('fontSize');
 const wordsInput = document.getElementById('wordsInput');
 const wordCount = document.getElementById('wordCount');
@@ -188,6 +189,7 @@ async function handleGenerate() {
                 words: words,
                 colorScheme: scheme,
                 fontSize: fontSize.value,
+                backgroundColor: backgroundColor.value,
                 customColors: customColorsList,
             }),
         });

@@ -85,13 +85,20 @@ def create_mask(image, threshold, invert):
     return mask
 
 
-def place_words_dense(width, height, mask, words, colors, base_font_size):
+def place_words_dense(width, height, mask, words, colors, base_font_size, background_color='transparent'):
     """
     Place words densely with strict no-overlap policy.
     Rotations restricted to 0 and 90 degrees.
     Uses many passes with decreasing font sizes to fill gaps.
     """
-    output = Image.new('RGBA', (width, height), (255, 255, 255, 255))
+    # Initialize background
+    bg_color = (255, 255, 255, 0) # Default transparent
+    if background_color == 'white':
+        bg_color = (255, 255, 255, 255)
+    elif background_color == 'black':
+        bg_color = (0, 0, 0, 255)
+        
+    output = Image.new('RGBA', (width, height), bg_color)
     
     # Parse words
     featured = []
@@ -183,7 +190,7 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             if i % 1000 == 0:
                 current_time = time.time()
                 if current_time - last_yield_time > 0.2:
-                    yield output.convert('RGB')
+                    yield output # Yield RGBA
                     last_yield_time = current_time
 
             if consecutive_failures > max_failures:
@@ -346,13 +353,13 @@ def place_words_dense(width, height, mask, words, colors, base_font_size):
             color_idx += 1
             
         # Yield the current state of the image after each pass
-        yield output.convert('RGB')
+        yield output # Yield RGBA
     
     # Final yield to ensure we catch everything
-    yield output.convert('RGB')
+    yield output # Yield RGBA
 
 
-def process_image(image_data, threshold, invert, words, color_scheme, font_size_key, custom_colors=None):
+def process_image(image_data, threshold, invert, words, color_scheme, font_size_key, background_color='transparent', custom_colors=None):
     """Main processing function."""
     # Decode image
     if ',' in image_data:
@@ -400,7 +407,7 @@ def process_image(image_data, threshold, invert, words, color_scheme, font_size_
     base_font_size = max(10, int(base_size * scale))
     
     # Generate typographic image (Streaming)
-    for intermediate_result in place_words_dense(width, height, mask, words, colors, base_font_size):
+    for intermediate_result in place_words_dense(width, height, mask, words, colors, base_font_size, background_color):
         # Convert to PNG
         output_buffer = io.BytesIO()
         intermediate_result.save(output_buffer, format='PNG')
@@ -431,6 +438,7 @@ def generate():
         words = data.get('words', [])
         color_scheme = data.get('colorScheme', 'warm_red')
         font_size = data.get('fontSize', 'medium')
+        background_color = data.get('backgroundColor', 'transparent')
         custom_colors = data.get('customColors', [])
         
         if not image_data:
@@ -442,7 +450,7 @@ def generate():
             try:
                 for result_uri in process_image(
                     image_data, threshold, invert, words,
-                    color_scheme, font_size, custom_colors
+                    color_scheme, font_size, background_color, custom_colors
                 ):
                     # Format as Server-Sent Event or just ndjson
                     # We'll use a simple line-delimited JSON for ease of parsing
