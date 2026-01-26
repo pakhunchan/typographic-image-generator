@@ -1,5 +1,7 @@
 /* CSS Reset & Variables */
-*, *::before, *::after {
+*,
+*::before,
+*::after {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
@@ -219,12 +221,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
     background: var(--bg-tertiary);
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkmark {
+.checkbox-label input[type="checkbox"]:checked+.checkmark {
     background: var(--accent-gradient);
     border-color: transparent;
 }
 
-.checkbox-label input[type="checkbox"]:checked + .checkmark::after {
+.checkbox-label input[type="checkbox"]:checked+.checkmark::after {
     content: '✓';
     color: white;
     font-size: 12px;
@@ -243,7 +245,8 @@ input[type="range"]::-webkit-slider-thumb:hover {
     color: var(--text-secondary);
 }
 
-select, input[type="text"] {
+select,
+input[type="text"] {
     padding: 0.75rem 1rem;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
@@ -255,11 +258,13 @@ select, input[type="text"] {
     transition: border-color var(--transition);
 }
 
-select:hover, input[type="text"]:hover {
+select:hover,
+input[type="text"]:hover {
     border-color: rgba(255, 255, 255, 0.15);
 }
 
-select:focus, input[type="text"]:focus {
+select:focus,
+input[type="text"]:focus {
     border-color: var(--accent-color);
 }
 
@@ -366,8 +371,13 @@ textarea::placeholder {
 }
 
 @keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 /* Preview Section */
@@ -395,6 +405,18 @@ textarea::placeholder {
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    position: relative;
+}
+
+.result-container.checkerboard {
+    background-image:
+        linear-gradient(45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%),
+        linear-gradient(-45deg, rgba(255, 255, 255, 0.05) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%),
+        linear-gradient(-45deg, transparent 75%, rgba(255, 255, 255, 0.05) 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: #0f0f15;
 }
 
 .result-placeholder {

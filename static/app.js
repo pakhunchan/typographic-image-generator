@@ -42,6 +42,7 @@ function init() {
     setupEventListeners();
     updateColorPreview();
     updateWordCount();
+    updateBackgroundPreview();
 }
 
 // Event Listeners
@@ -56,6 +57,7 @@ function setupEventListeners() {
     // Controls
     thresholdSlider.addEventListener('input', handleThresholdChange);
     colorScheme.addEventListener('change', handleColorSchemeChange);
+    backgroundColor.addEventListener('change', updateBackgroundPreview);
     wordsInput.addEventListener('input', updateWordCount);
 
     // Generate button
@@ -144,6 +146,15 @@ function updateColorPreview() {
     colorPreview.innerHTML = colors.map(color =>
         `<div class="color-swatch" style="background-color: ${color}"></div>`
     ).join('');
+}
+
+// Background preview grid
+function updateBackgroundPreview() {
+    if (backgroundColor.value === 'transparent') {
+        resultContainer.classList.add('checkerboard');
+    } else {
+        resultContainer.classList.remove('checkerboard');
+    }
 }
 
 // Word count
