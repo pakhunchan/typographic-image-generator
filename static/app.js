@@ -59,6 +59,7 @@ function setupEventListeners() {
     colorScheme.addEventListener('change', handleColorSchemeChange);
     backgroundColor.addEventListener('change', updateBackgroundPreview);
     wordsInput.addEventListener('input', updateWordCount);
+    wordsInput.addEventListener('focus', handleWordsFocus);
 
     // Generate button
     generateBtn.addEventListener('click', handleGenerate);
@@ -157,11 +158,19 @@ function updateBackgroundPreview() {
     }
 }
 
-// Word count
 function updateWordCount() {
-    const words = wordsInput.value.split('\n').filter(w => w.trim()).length;
-    const featured = wordsInput.value.split('\n').filter(w => w.trim().startsWith('*')).length;
+    const rawLines = wordsInput.value.split('\n').filter(w => w.trim());
+    const words = rawLines.length;
+    const featured = rawLines.filter(w => w.startsWith('*')).length;
     wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}${featured > 0 ? ` (${featured} featured)` : ''}`;
+}
+
+// Auto-select default words on focus for easy replacement
+function handleWordsFocus() {
+    const defaultText = "*LOVE\nHAPPY\nFUN";
+    if (wordsInput.value.trim() === defaultText) {
+        wordsInput.select();
+    }
 }
 
 // Generate
@@ -172,10 +181,11 @@ async function handleGenerate() {
         return;
     }
 
-    const words = wordsInput.value.split('\n').filter(w => w.trim());
+    let words = wordsInput.value.split('\n').filter(w => w.trim());
+
+    // Fallback if empty to avoid error
     if (words.length === 0) {
-        alert('Please enter at least one word');
-        return;
+        words = ['*LOVE', 'HAPPY', 'FUN'];
     }
 
     // UI state: loading
