@@ -58,19 +58,7 @@
                     <div class="word-count" id="wordCount">3 words (1 featured)</div>
                 </section>
 
-                <!-- 3. Primary Action -->
-                <button class="btn btn-primary btn-large" id="generateBtn">
-                    <span class="btn-text">GENERATE</span>
-                    <span class="btn-loading hidden">
-                        <svg class="spinner" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
-                                stroke-dasharray="31.4 31.4" />
-                        </svg>
-                        Generating...
-                    </span>
-                </button>
-
-                <!-- 4. Advanced Settings (Condensed) -->
+                <!-- 3. Advanced Settings (Condensed) -->
                 <section class="control-section advanced-settings">
                     <div class="section-header">
                         <h2>3. Design Settings</h2>
@@ -132,20 +120,6 @@
             </aside>
 
             <section class="preview-section">
-                <div class="preview-header">
-                    <h2>Preview</h2>
-                    <button class="btn btn-secondary hidden" id="downloadBtn">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        Download PNG
-                    </button>
-                    <a id="hiddenDownloadLink" style="display: none;"></a>
-                </div>
-
                 <div class="result-container" id="resultContainer">
                     <div class="result-placeholder" id="resultPlaceholder">
                         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -159,6 +133,31 @@
                     <img id="resultImage" class="result-image hidden" alt="Generated typographic portrait">
                 </div>
             </section>
+
+            <aside class="action-panel">
+                <div class="action-group">
+                    <button class="btn btn-primary btn-action" id="generateBtn">
+                        <span class="btn-text">GENERATE</span>
+                        <span class="btn-loading hidden">
+                            <svg class="spinner" viewBox="0 0 24 24">
+                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
+                                    stroke-dasharray="31.4 31.4" />
+                            </svg>
+                        </span>
+                    </button>
+
+                    <button class="btn btn-secondary btn-action hidden" id="downloadBtn">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        DOWNLOAD PNG
+                    </button>
+                    <a id="hiddenDownloadLink" style="display: none;"></a>
+                </div>
+            </aside>
         </main>
     </div>
 
