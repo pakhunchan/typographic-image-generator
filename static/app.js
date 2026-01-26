@@ -114,7 +114,7 @@ function handleFile(file) {
 
 // Threshold slider
 function handleThresholdChange() {
-    thresholdValue.textContent = thresholdSlider.value;
+    thresholdValue.textContent = thresholdSlider.value + '%';
 }
 
 // Color scheme
@@ -195,7 +195,7 @@ async function handleGenerate() {
             },
             body: JSON.stringify({
                 image: currentImageData,
-                threshold: parseInt(thresholdSlider.value, 10),
+                threshold: Math.round(parseInt(thresholdSlider.value, 10) * 2.55),
                 invert: invertCheckbox.checked,
                 words: words,
                 colorScheme: scheme,
