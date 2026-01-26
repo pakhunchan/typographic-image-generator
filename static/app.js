@@ -32,6 +32,7 @@ const resultContainer = document.getElementById('resultContainer');
 const resultPlaceholder = document.getElementById('resultPlaceholder');
 const resultImage = document.getElementById('resultImage');
 const downloadBtn = document.getElementById('downloadBtn');
+const boldBtn = document.getElementById('boldBtn');
 
 // State
 let currentImageData = null;
@@ -59,7 +60,9 @@ function setupEventListeners() {
     colorScheme.addEventListener('change', handleColorSchemeChange);
     backgroundColor.addEventListener('change', updateBackgroundPreview);
     wordsInput.addEventListener('input', updateWordCount);
-    wordsInput.addEventListener('focus', handleWordsFocus);
+    wordsInput.addEventListener('keydown', handleWordsKeydown);
+    wordsInput.addEventListener('paste', handleWordsPaste);
+    boldBtn.addEventListener('click', toggleBoldSelection);
 
     // Generate button
     generateBtn.addEventListener('click', handleGenerate);
@@ -158,18 +161,93 @@ function updateBackgroundPreview() {
     }
 }
 
-function updateWordCount() {
-    const rawLines = wordsInput.value.split('\n').filter(w => w.trim());
-    const words = rawLines.length;
-    const featured = rawLines.filter(w => w.startsWith('*')).length;
-    wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}${featured > 0 ? ` (${featured} featured)` : ''}`;
+// Editor logic
+function handleWordsKeydown(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+        e.preventDefault();
+        toggleBoldSelection();
+        return;
+    }
+
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        document.execCommand('insertHTML', false, '<div class="word-line"><br></div>');
+        updateWordCount();
+    }
 }
 
-// Auto-select default words on focus for easy replacement
+function handleWordsPaste(e) {
+    e.preventDefault();
+    const text = (e.originalEvent || e).clipboardData.getData('text/plain');
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+
+    const html = lines.map(line => {
+        const isFeatured = line.trim().startsWith('*');
+        const content = isFeatured ? line.trim().substring(1) : line.trim();
+        return `<div class="word-line${isFeatured ? ' featured' : ''}">${content}</div>`;
+    }).join('');
+
+    document.execCommand('insertHTML', false, html);
+    updateWordCount();
+}
+
+function toggleBoldSelection() {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+
+    const range = selection.getRangeAt(0);
+    const editor = document.getElementById('wordsInput');
+
+    // Find all word-lines that are at least partially selected
+    const allLines = Array.from(editor.querySelectorAll('.word-line'));
+    const selectedLines = allLines.filter(line => selection.containsNode(line, true));
+
+    // If no specific lines are found (e.g. just a cursor), try the parent of the selection
+    if (selectedLines.length === 0) {
+        let node = range.commonAncestorContainer;
+        if (node.nodeType === 3) node = node.parentNode;
+        const line = node.closest('.word-line');
+        if (line) selectedLines.push(line);
+    }
+
+    if (selectedLines.length > 0) {
+        // Determine if we are turning bold ON or OFF 
+        // (If any selected line is NOT featured, we turn them all ON)
+        const anyNotFeatured = selectedLines.some(l => !l.classList.contains('featured'));
+
+        selectedLines.forEach(line => {
+            if (anyNotFeatured) {
+                line.classList.add('featured');
+            } else {
+                line.classList.remove('featured');
+            }
+
+            // Clean up any internal <b> or <strong> tags injected by the browser
+            // to ensure "partial bolding" doesn't happen inside labels
+            const cleanText = line.innerText;
+            line.innerHTML = cleanText === "" ? "<br>" : cleanText;
+        });
+
+        updateWordCount();
+    }
+}
+
+function updateWordCount() {
+    const lines = Array.from(wordsInput.querySelectorAll('.word-line'));
+    const total = lines.filter(l => l.innerText.trim()).length;
+    const featured = lines.filter(l => l.classList.contains('featured') && l.innerText.trim()).length;
+
+    wordCount.textContent = `${total} word${total !== 1 ? 's' : ''}${featured > 0 ? ` (${featured} featured)` : ''}`;
+}
+
+// Auto-select is now less useful for rich editor but we can keep a simpler version
 function handleWordsFocus() {
-    const defaultText = "*LOVE\nHAPPY\nFUN";
-    if (wordsInput.value.trim() === defaultText) {
-        wordsInput.select();
+    if (wordsInput.innerText.trim() === "LOVE\nHAPPY\nFUN") {
+        const range = document.createRange();
+        range.selectNodeContents(wordsInput);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
     }
 }
 
@@ -181,7 +259,13 @@ async function handleGenerate() {
         return;
     }
 
-    let words = wordsInput.value.split('\n').filter(w => w.trim());
+    // Parse from rich editor
+    const editorLines = Array.from(wordsInput.querySelectorAll('.word-line'));
+    let words = editorLines.map(line => {
+        const text = line.innerText.trim();
+        if (!text) return null;
+        return (line.classList.contains('featured') ? '*' : '') + text;
+    }).filter(w => w !== null);
 
     // Fallback if empty to avoid error
     if (words.length === 0) {

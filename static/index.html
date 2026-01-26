@@ -44,11 +44,18 @@
                 <section class="control-section">
                     <div class="section-header">
                         <h2>2. Your Words</h2>
+                        <div class="word-toolbar">
+                            <button type="button" class="tool-btn" id="boldBtn"
+                                title="Feature Word (Ctrl+B)"><b>B</b></button>
+                            <span class="toolbar-hint">Bold words will be 'Featured' and appear larger</span>
+                        </div>
                     </div>
-                    <textarea id="wordsInput" placeholder="Enter your words here...">*LOVE
-HAPPY
-FUN</textarea>
-                    <div class="word-count" id="wordCount">0 words</div>
+                    <div id="wordsInput" class="word-input-area" contenteditable="true" spellcheck="false">
+                        <div class="word-line featured">LOVE</div>
+                        <div class="word-line">HAPPY</div>
+                        <div class="word-line">FUN</div>
+                    </div>
+                    <div class="word-count" id="wordCount">3 words (1 featured)</div>
                 </section>
 
                 <!-- 3. Primary Action -->
@@ -125,7 +132,20 @@ FUN</textarea>
             </aside>
 
             <section class="preview-section">
-                <h2>Preview</h2>
+                <div class="preview-header">
+                    <h2>Preview</h2>
+                    <button class="btn btn-secondary hidden" id="downloadBtn">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="7 10 12 15 17 10" />
+                            <line x1="12" y1="15" x2="12" y2="3" />
+                        </svg>
+                        Download PNG
+                    </button>
+                    <a id="hiddenDownloadLink" style="display: none;"></a>
+                </div>
+
                 <div class="result-container" id="resultContainer">
                     <div class="result-placeholder" id="resultPlaceholder">
                         <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -138,15 +158,6 @@ FUN</textarea>
                     </div>
                     <img id="resultImage" class="result-image hidden" alt="Generated typographic portrait">
                 </div>
-                <button class="btn btn-secondary hidden" id="downloadBtn">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                        <polyline points="7 10 12 15 17 10" />
-                        <line x1="12" y1="15" x2="12" y2="3" />
-                    </svg>
-                    Download PNG
-                </button>
-                <a id="hiddenDownloadLink" style="display: none;"></a>
             </section>
         </main>
     </div>
