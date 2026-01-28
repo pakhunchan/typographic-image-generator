@@ -1,0 +1,40 @@
+Starting Typographic Portrait Generator...
+ * Serving Flask app 'server'
+ * Debug mode: on
+[31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5000
+ * Running on http://192.168.7.227:5000
+[33mPress CTRL+C to quit[0m
+127.0.0.1 - - [26/Jan/2026 14:53:19] "HEAD / HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:53:19] "HEAD /app.js HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:53:35] "[36mGET / HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:53:35] "[36mGET /styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:53:35] "[36mGET /app.js?v=10 HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:55:59] "[36mGET / HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:55:59] "[36mGET /styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:55:59] "[36mGET /app.js?v=10 HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 14:56:10] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:56:27] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:56:37] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:56:45] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:56:52] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 14:58:25] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:00:27] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:00:36] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:00:42] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:01:25] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:01:44] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:03:27] "GET / HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:03:27] "[36mGET /styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 15:03:27] "[36mGET /app.js?v=10 HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 15:07:22] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:07:28] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:07:34] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:07:41] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:08:16] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:15:01] "[36mGET / HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 15:15:01] "[36mGET /styles.css HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 15:15:01] "[36mGET /app.js?v=10 HTTP/1.1[0m" 304 -
+127.0.0.1 - - [26/Jan/2026 15:15:08] "POST /api/generate HTTP/1.1" 200 -
+127.0.0.1 - - [26/Jan/2026 15:15:15] "POST /api/generate HTTP/1.1" 200 -

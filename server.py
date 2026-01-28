@@ -1,7 +1,10 @@
 """
 Typographic Portrait Generator - Backend Server
 
-Converts images into typographic art by filling dark/light regions with text.
+Finalized Dual-Res Architecture:
+1. Layout Calculation: High-density layout grid (~512px).
+2. Proportional Distribution: Every font tier gets a specific area budget.
+3. Rendering: Razor-sharp direct rendering at high-res (~2048px).
 """
 
 import io
@@ -26,454 +29,422 @@ COLOR_SCHEMES = {
     'monochrome': ['#000000', '#333333', '#666666', '#999999', '#CCCCCC'],
 }
 
-# Font size mappings
-FONT_SIZES = {
-    'small': 10,
-    'medium': 14,
-    'large': 20,
-}
+LAYOUT_REF_SIZE = 512
+RENDER_MAX_SIZE = 2048
+RENDER_SCALE = 4 
 
-MAX_DIMENSION = 2048
-
+# Performance Tracing Toggle
+DEBUG_PERF = True
 
 def hex_to_rgb(hex_color):
-    """Convert hex color to RGB tuple."""
     hex_color = hex_color.lstrip('#')
     return tuple(int(hex_color[i:i+2], 16) for i in (0, 2, 4))
 
-
 def get_font(size):
-    """Get a bold font at the specified size."""
-    try:
-        # Prioritize thick/bold fonts for better density and "poster" look
-        font_paths = [
-            # macOS paths (Impact/Arial Black are very thick)
-            '/System/Library/Fonts/Supplemental/Impact.ttf',
-            '/System/Library/Fonts/Supplemental/Arial Black.ttf',
-            '/Library/Fonts/Impact.ttf',
-            '/Library/Fonts/Arial Black.ttf',
-            '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
-            '/Library/Fonts/Arial Bold.ttf',
-            '/System/Library/Fonts/Helvetica.ttc', # Often has bold, but fallback
-            # Common names
-            'Impact',
-            'Arial Black',
-            'Arial Bold',
-            'Helvetica-Bold',
-            'DejaVuSans-Bold',
-        ]
-        for font_path in font_paths:
-            try:
-                return ImageFont.truetype(font_path, size)
-            except OSError:
-                continue
-        return ImageFont.load_default()
-    except Exception:
-        return ImageFont.load_default()
-
-
-def create_mask(image, threshold, invert):
-    """Create a binary mask from the image based on threshold."""
-    gray = image.convert('L')
-    gray_array = np.array(gray)
-    
-    if invert:
-        mask = gray_array >= threshold
-    else:
-        mask = gray_array < threshold
-    
-    return mask
-
-
-def place_words_dense(width, height, mask, words, colors, base_font_size, background_color='transparent'):
     """
-    Place words densely with strict no-overlap policy.
-    Rotations restricted to 0 and 90 degrees.
-    Uses many passes with decreasing font sizes to fill gaps.
+    Get a scalable font at the specified size.
+    On macOS, we prioritize heavy fonts like Impact for the portrait effect.
     """
-    # Initialize background
-    bg_color = (255, 255, 255, 0) # Default transparent
-    if background_color == 'white':
-        bg_color = (255, 255, 255, 255)
-    elif background_color == 'black':
-        bg_color = (0, 0, 0, 255)
-        
-    output = Image.new('RGBA', (width, height), bg_color)
+    size = int(size)
+    if size < 1: size = 1
     
-    # Parse words
-    featured = []
-    regular = []
-    for word in words:
-        word = word.strip()
-        if not word:
+    font_names = [
+        '/System/Library/Fonts/Supplemental/Impact.ttf',
+        '/System/Library/Fonts/Supplemental/Arial Black.ttf',
+        '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
+        '/System/Library/Fonts/Helvetica-Bold.ttc',
+        'Impact', 'Arial Black', 'Arial Bold', 'Helvetica-Bold', 'Arial'
+    ]
+    
+    for name in font_names:
+        try:
+            return ImageFont.truetype(name, size)
+        except Exception:
             continue
-        if word.startswith('*'):
-            featured.append(word[1:].upper())
-        else:
-            regular.append(word.upper())
+            
+    try:
+        return ImageFont.truetype("Arial.ttf", size)
+    except:
+        return ImageFont.load_default()
+
+def compute_integral_image(img):
+    return img.cumsum(axis=0).cumsum(axis=1)
+
+def find_valid_positions_vectorized(integral_occupancy, integral_mask, width, height, word_w, word_h, mask_threshold=0.98):
+    if word_w <= 0 or word_h <= 0: return np.array([]), np.array([])
+    out_h, out_w = height - word_h + 1, width - word_w + 1
+    if out_h <= 0 or out_w <= 0: return np.array([]), np.array([])
+
+    i_occ_pad = np.pad(integral_occupancy, ((1,0), (1,0)), mode='constant', constant_values=0)
+    i_mask_pad = np.pad(integral_mask, ((1,0), (1,0)), mode='constant', constant_values=0)
     
+    # Corners
+    br = i_occ_pad[word_h : word_h+out_h, word_w : word_w+out_w]
+    tr = i_occ_pad[0      : out_h,        word_w : word_w+out_w]
+    bl = i_occ_pad[word_h : word_h+out_h, 0      : out_w]
+    tl = i_occ_pad[0      : out_h,        0      : out_w]
+    occupancy_sums = br - tr - bl + tl
+    
+    br_m = i_mask_pad[word_h : word_h+out_h, word_w : word_w+out_w]
+    tr_m = i_mask_pad[0      : out_h,        word_w : word_w+out_w]
+    bl_m = i_mask_pad[word_h : word_h+out_h, 0      : out_w]
+    tl_m = i_mask_pad[0      : out_h,        0      : out_w]
+    mask_sums = br_m - tr_m - bl_m + tl_m
+    
+    required_mask_sum = (word_w * word_h) * mask_threshold
+    valid_grid = (occupancy_sums == 0) & (mask_sums >= required_mask_sum)
+    return np.nonzero(valid_grid)
+
+def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, telemetry_sink=None, show_legend=False):
+    orig_w, orig_h = image.size
+    start_total = time.time()
+    sf = min(RENDER_MAX_SIZE / orig_w, RENDER_MAX_SIZE / orig_h)
+    render_w, render_h = int(orig_w * sf), int(orig_h * sf)
+    layout_w, layout_h = render_w // RENDER_SCALE, render_h // RENDER_SCALE
+    
+    gray = image.convert('L').resize((layout_w, layout_h), Image.LANCZOS)
+    mask_array = np.array(gray)
+    mask = (mask_array >= threshold).astype(np.int32) if invert else (mask_array < threshold).astype(np.int32)
+    integral_mask = compute_integral_image(mask)
+    occ_h = np.zeros((layout_h, layout_w), dtype=np.int32)
+    occ_v = np.zeros((layout_h, layout_w), dtype=np.int32)
+    
+    bg = (255, 255, 255, 0)
+    if background_color == 'white': bg = (255, 255, 255, 255)
+    elif background_color == 'black': bg = (0, 0, 0, 255)
+    render_canvas = Image.new('RGBA', (render_w, render_h), bg)
+    
+    featured = [w[1:].upper() for w in words if w.strip().startswith('*')]
+    regular = [w.upper() for w in words if w.strip() and not w.strip().startswith('*')]
     all_words = featured + regular if featured or regular else ['TEXT']
     rgb_colors = [hex_to_rgb(c) for c in colors]
     
-    # Track word positions to avoid clustering similar words
-    # Dictionary mapping word -> list of (x, y) coordinates
-    word_positions = {}
-
-    # Track occupied regions
-    # logical OR of placed text boxes
-    occupied = np.zeros((height, width), dtype=bool)
+    # Updated geometric scale: 18pt to 4pt
+    layout_font_sizes = [18, 14, 11, 8, 6, 4, 3]
     
-    # Restrict angles to Horizontal (0) and Vertical (90)
-    angles = [0, 0, 0, 90] 
+    # --- DYNAMIC GROUPING LOGIC ---
+    num_fonts = len(layout_font_sizes)
+    # Largest third (can round down)
+    header_count = max(1, num_fonts // 3)
     
+    headers = layout_font_sizes[:header_count]
+    grout = layout_font_sizes[-2:] if num_fonts >= 2 else layout_font_sizes[-1:]
+    
+    # --- IMPROVED COVERAGE BUDGETING ---
+    total_mask_pixels = np.sum(mask)
+    if total_mask_pixels == 0: total_mask_pixels = 1 
+    
+    # We want a total coverage of ~85%. 
+    # Let's allocate specific slices of the TOTAL silhouette to each pass.
+    coverage_slices = {} # Percentage of TOTAL silhouette per pass
+    
+    # Headers (~20% total)
+    for lfs in headers: coverage_slices[lfs] = 0.20 / header_count
+    
+    # Texture (~25% total)
+    texture_fonts = [l for l in layout_font_sizes if l not in headers and l not in grout]
+    for lfs in texture_fonts: coverage_slices[lfs] = 0.25 / max(1, len(texture_fonts))
+    
+    # Grout 1 (~20%)
+    if len(grout) > 0: coverage_slices[grout[0]] = 0.20
+    
+    # Grout 2 (The "Exhaustion" pass - target the remaining gap up to 85% total)
+    # This pass will just try to fill as much as possible until max_failures.
+    if len(grout) > 1: coverage_slices[grout[1]] = 0.20 # Reasonable cap
+    
+    dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
     color_idx = 0
+    last_yield_time = time.time()
+    angles = [0, 90]
     
-    # Multi-pass strategy:
-    # 1. Very Large (Featured/Big) - Anchor points
-    # 2. Large
-    # 3. Medium-Large
-    # 4. Medium
-    # 5. Medium
-    # 6. Small
-    # 7. Tiny (Fillers)
-    # 8. Micro (gap fillers)
-    # 8. Micro (gap fillers)
-    # 9. Nano (finishing touches)
-    size_multipliers = [1.9, 1.7, 1.5, 1.3, 1.1, 0.9, 0.7, 0.5, 0.3]
+    print(f"Dual-res packing (N/3 Hierarchy): {layout_w}x{layout_h} layout -> {render_w}x{render_h} render")
+    print(f"Groups: Headers={headers}, Grout={grout}")
     
-    # Base density target affects attempts
-    total_pixels = width * height
-    # Reduce density by ~20% (Increase divisor from 20 to 25)
-    base_attempts = int(total_pixels / 25) 
+    setup_end = time.time()
+    setup_duration_ms = (setup_end - start_total) * 1000
     
-    # Minimum distance between identical words (as fraction of image diagonal)
-    min_dist_ratio = 0.2 
-    img_diag = np.sqrt(width**2 + height**2)
+    # Send setup telemetry event
+    if telemetry_sink is not None:
+        telemetry_sink.append({
+            'event': 'phase_complete',
+            'phase': 'setup',
+            'duration_ms': setup_duration_ms
+        })
     
-    for pass_idx, size_mult in enumerate(size_multipliers):
-        current_font_size = max(6, int(base_font_size * size_mult)) # Allow even smaller font
-        font = get_font(current_font_size)
+    total_pixels_placed = 0
+    
+    for pass_idx, lfs in enumerate(layout_font_sizes):
+        pass_start = time.time()
+        render_font_base = lfs * RENDER_SCALE
+        is_feature = (pass_idx == 0 and featured)
         
-        # Calculate attempts:
-        # User-defined density distribution:
-        # Largest 1/3 (Indices 0-2): x1.4
-        # Middle 1/3 (Indices 3-5):  x1.8
-        # Smallest 1/3 (Indices 6-8): x0.8
+        target_pass_pixels = total_mask_pixels * coverage_slices.get(lfs, 0.05)
+        pixels_placed_this_pass = 0
         
-        base_factor = pass_idx + 1
-        
-        if pass_idx <= 2:   # 1.9, 1.7, 1.5
-            boost = 1.4
-        elif pass_idx <= 5: # 1.3, 1.1, 0.9
-            boost = 1.8
-        else:               # 0.7, 0.5, 0.3
-            boost = 0.8
+        # Dynamic behavior assignment: Balanced Density vs Variety
+        if lfs in headers:
+            batch_size, max_failures = 10, 25
+            max_per_batch = 2 
+            layout_padding = 1
+        elif lfs in grout:
+            batch_size, max_failures = 200, 150 # Aggressive early-exit for filler
+            max_per_batch = 8 
+            layout_padding = 0 
+        else:
+            batch_size, max_failures = 40, 50 
+            max_per_batch = 4 
+            layout_padding = 1
             
-        attempts_factor = base_factor * boost
-        
-        attempts = int(base_attempts * attempts_factor) 
-        
-        # Reduce proximity requirement for smaller passes
-        current_min_dist = max(50, img_diag * min_dist_ratio * size_mult)
+        # Selective Padding Config
+        base_p = 1.0 
+        long_plane_p = 3.0
             
-        # Optimization: Fail fast if we can't find spots
         consecutive_failures = 0
-        max_failures = 80000 
         
-        # Temp draw for measurement
-        dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
+        print(f"--- FONT PASS: {lfs}pt (Target: {int(target_pass_pixels)}px) ---")
         
-        last_yield_time = time.time()
+        horiz_pixels, vert_pixels = 0, 0
         
-        for i in range(attempts):
-            # Frequent yield check for smooth streaming
-            if i % 1000 == 0:
-                current_time = time.time()
-                if current_time - last_yield_time > 0.2:
-                    yield output # Yield RGBA
-                    last_yield_time = current_time
+        # --- CACHING STRATEGY ---
+        render_cache = {} 
+        dirty_integral = True
+        cached_integral_all, cached_integral_h, cached_integral_v = None, None, None
+        
+        last_pass_pixels = pixels_placed_this_pass # Initialize for the pass
+        dirty_render = False
 
-            if consecutive_failures > max_failures:
-                break
-                
-            x = random.randint(0, width - 1)
-            y = random.randint(0, height - 1)
+        while pixels_placed_this_pass < target_pass_pixels:
+            if consecutive_failures > max_failures: break
             
-            # Quick check: is the center even in the mask and unoccupied?
-            if y >= height or x >= width or not mask[y, x] or occupied[y, x]:
-                consecutive_failures += 1
-                continue
+            # AGGRESSIVE ORIENTATION BALANCE 
+            h_v_ratio = horiz_pixels / (vert_pixels + 1)
+            angle_choices = [90] if h_v_ratio > 1.1 else ([0] if h_v_ratio < 0.9 else angles)
+            angle = random.choice(angle_choices)
+            word = random.choice(featured if is_feature else all_words)
             
-            # Select word avoiding proximity
-            word = None
-            # Try a few times to pick a word that satisfies distance check
-            for _ in range(5):
-                 candidate = random.choice(all_words)
-                 
-                 # Check distance to existing instances of this word
-                 # Only check words placed in the same or previous (larger) passes
-                 # Actually just check global history for this word
-                 if candidate not in word_positions:
-                     word = candidate
-                     break
-                     
-                 # Check distances
-                 too_close = False
-                 for px, py in word_positions[candidate]:
-                     dist = np.sqrt((x-px)**2 + (y-py)**2)
-                     if dist < current_min_dist:
-                         too_close = True
-                         break
-                 
-                 if not too_close:
-                     word = candidate
-                     break
-            
-            # If we couldn't find a good word, just pick one (better to fill than leave empty?)
-            # Or skip? User prefers distribution. Let's skip position if we really can't find a valid word.
-            # But that might leave holes.
-            # Compromise: if size is small, relax constraint
-            if not word:
-                if size_mult < 0.6:
-                    word = random.choice(all_words)
-                else:
-                    consecutive_failures += 1
-                    continue
-
-            is_featured = word in featured
-            
-            # Boost featured words size in early passes
-            this_pass_font = font
-            if is_featured and pass_idx == 0:
-                 this_pass_font = get_font(int(current_font_size * 1.5))
-
-            angle = random.choice(angles)
-            
-            # Padding - smaller padding for smaller text to fit tighter
-            # Padding - increased to ensure text doesn't touch
-            if size_mult <= 0.4:
-                padding = 1  # Was 0
-            elif size_mult <= 0.6:
-                padding = 2  # Was 1
-            elif size_mult <= 0.8:
-                padding = 5  # Was 2
+            cache_key = (word, angle)
+            if cache_key in render_cache:
+                txt_final, wl_w_base, wl_h_base, wl_w_long, wl_h_long, final_w, final_h = render_cache[cache_key]
             else:
-                padding = 10 # Was 4
-            
-            # Measure text using anchor='mm' (middle-middle) to center it at (0,0)
-            # bbox will be typically negative left/top and positive right/bottom
-            raw_bbox = dummy_draw.textbbox((0, 0), word, font=this_pass_font, anchor='mm')
-            # raw_bbox is (x0, y0, x1, y1)
-            
-            # Add padding to the bbox
-            # We want the OCCUPIED region to include padding
-            box_x0 = raw_bbox[0] - padding
-            box_y0 = raw_bbox[1] - padding
-            box_x1 = raw_bbox[2] + padding
-            box_y1 = raw_bbox[3] + padding
-            
-            # Rotate bounds if 90 degrees
-            if angle == 90 or angle == -90:
-                # Rotate (x, y) -> (-y, x)
-                # But for a rect centered at 0:
-                # New width = old height, New height = old width
-                w = box_x1 - box_x0
-                h = box_y1 - box_y0
+                rfs = render_font_base
+                if is_feature and word in featured: rfs = int(render_font_base * 1.5)
                 
-                # Re-center
-                box_x0 = -h // 2
-                box_x1 = h // 2
-                box_y0 = -w // 2
-                box_y1 = w // 2
+                quality_scale = 2
+                font_high_res = get_font(rfs * quality_scale)
+                bbox = dummy_draw.textbbox((0, 0), word, font=font_high_res, anchor='mm')
+                rw_h, rh_h = bbox[2]-bbox[0], bbox[3]-bbox[1]
+                tmp_dim = int(max(rw_h, rh_h) + 40)
+                
+                txt_tmp = Image.new('RGBA', (tmp_dim, tmp_dim), (0,0,0,0))
+                draw_tmp = ImageDraw.Draw(txt_tmp)
+                draw_tmp.text((tmp_dim/2, tmp_dim/2), word, font=font_high_res, anchor='mm', fill=rgb_colors[color_idx % len(rgb_colors)]+(255,))
+                
+                if angle == 90: txt_tmp = txt_tmp.transpose(Image.ROTATE_90)
+                elif angle == -90: txt_tmp = txt_tmp.transpose(Image.ROTATE_270)
+                
+                ink_bbox_h = txt_tmp.getbbox()
+                if not ink_bbox_h:
+                    consecutive_failures += 1; continue
+                txt_high_res = txt_tmp.crop(ink_bbox_h)
+                
+                h_w, h_h = txt_high_res.size
+                txt_final = txt_high_res.resize((h_w // quality_scale, h_h // quality_scale), Image.LANCZOS)
+                final_w, final_h = txt_final.size
+                
+                wl_w_base = int(np.ceil((final_w + base_p * 2 * RENDER_SCALE) / RENDER_SCALE))
+                wl_h_base = int(np.ceil((final_h + base_p * 2 * RENDER_SCALE) / RENDER_SCALE))
+                wl_w_long = int(np.ceil((final_w + (base_p + long_plane_p) * 2 * RENDER_SCALE) / RENDER_SCALE)) if angle == 0 else wl_w_base
+                wl_h_long = wl_h_base if angle == 0 else int(np.ceil((final_h + (base_p + long_plane_p) * 2 * RENDER_SCALE) / RENDER_SCALE))
+                
+                render_cache[cache_key] = (txt_final, wl_w_base, wl_h_base, wl_w_long, wl_h_long, final_w, final_h)
+
+            # --- INTEGRAL CACHE REFRESH ---
+            if dirty_integral:
+                occ_all = occ_h | occ_v
+                cached_integral_all, cached_integral_h, cached_integral_v = compute_integral_image(occ_all), compute_integral_image(occ_h), compute_integral_image(occ_v)
+                dirty_integral = False
+
+            integral_occ_same = cached_integral_h if angle == 0 else cached_integral_v
+
+            # --- VECTORIZED SEARCH (Base + Long Plane) ---
+            search_start = time.time()
             
-            # Calculate world coordinates
-            # Since we measured relative to (0,0) as center, and x,y is center:
-            left = x + int(box_x0)
-            right = x + int(box_x1)
-            top = y + int(box_y0)
-            bottom = y + int(box_y1)
+            # 1. Base check (Small gap vs ALL)
+            i_occ_all_pad = np.pad(cached_integral_all, ((1,0), (1,0)), mode='constant', constant_values=0)
+            i_mask_pad = np.pad(integral_mask, ((1,0), (1,0)), mode='constant', constant_values=0)
+            out_h_b, out_w_b = layout_h - wl_h_base + 1, layout_w - wl_w_base + 1
+            if out_h_b <= 0 or out_w_b <= 0: consecutive_failures += 1; continue
+            occ_base_sums = i_occ_all_pad[wl_h_base:wl_h_base+out_h_b, wl_w_base:wl_w_base+out_w_b] - i_occ_all_pad[0:out_h_b, wl_w_base:wl_w_base+out_w_b] - i_occ_all_pad[wl_h_base:wl_h_base+out_h_b, 0:out_w_b] + i_occ_all_pad[0:out_h_b, 0:out_w_b]
+            mask_sums = i_mask_pad[wl_h_base:wl_h_base+out_h_b, wl_w_base:wl_w_base+out_w_b] - i_mask_pad[0:out_h_b, wl_w_base:wl_w_base+out_w_b] - i_mask_pad[wl_h_base:wl_h_base+out_h_b, 0:out_w_b] + i_mask_pad[0:out_h_b, 0:out_w_b]
+            valid_base = (occ_base_sums == 0) & (mask_sums >= (wl_w_base * wl_h_base) * (0.82 if lfs in grout else 0.92))
             
-            # Fix empty slices if right <= left due to integer division
-            if right <= left: right = left + 1
-            if bottom <= top: bottom = top + 1
+            # 2. Long check (Large gap vs SAME)
+            i_occ_same_pad = np.pad(integral_occ_same, ((1,0), (1,0)), mode='constant', constant_values=0)
+            out_h_l, out_w_l = layout_h - wl_h_long + 1, layout_w - wl_w_long + 1
+            limit_h, limit_w = min(out_h_b, out_h_l), min(out_w_b, out_w_l)
+            if limit_h <= 0 or limit_w <= 0: consecutive_failures += 1; continue
+            occ_long_sums = i_occ_same_pad[wl_h_long:wl_h_long+limit_h, wl_w_long:wl_w_long+limit_w] - i_occ_same_pad[0:limit_h, wl_w_long:wl_w_long+limit_w] - i_occ_same_pad[wl_h_long:wl_h_long+limit_h, 0:limit_w] + i_occ_same_pad[0:limit_h, 0:limit_w]
             
-            # Boundary checks
-            if left < 0 or top < 0 or right > width or bottom > height:
-                consecutive_failures += 1
-                continue
+            # Combine the two masks (constrained to the smaller limit area)
+            ys, xs = np.nonzero(valid_base[:limit_h, :limit_w] & (occ_long_sums == 0))
             
-            # Mask Coverage Check
-            mask_slice = mask[top:bottom, left:right]
-            if np.mean(mask_slice) < 0.9: 
-                consecutive_failures += 1
-                continue
+            search_end = time.time()
             
-            # Occupancy Check - STRICT NO OVERLAP
-            occupied_slice = occupied[top:bottom, left:right]
-            if np.any(occupied_slice):
-                consecutive_failures += 1
-                continue
-            
-            # Calculate actual text dimensions for image creation
-            # We use the raw untransformed bbox for the text image size
-            text_w = raw_bbox[2] - raw_bbox[0]
-            text_h = raw_bbox[3] - raw_bbox[1]
-            
-            # Ensure canvas is large enough for rotation
-            dim = max(text_w, text_h) + padding * 2 + 10 # Extra margin for safety
-            txt_img = Image.new('RGBA', (dim, dim), (0,0,0,0))
-            txt_draw = ImageDraw.Draw(txt_img)
-            
-            # Draw text at center
-            txt_draw.text((dim/2, dim/2), word, font=this_pass_font, anchor='mm', fill=rgb_colors[color_idx % len(rgb_colors)] + (255,))
-            
-            if angle != 0:
-                txt_img = txt_img.rotate(angle)
-            
-            # Now paste. 
-            # We drawn center at (dim/2, dim/2).
-            # We want center to be at (x, y).
-            paste_x = x - dim // 2
-            paste_y = y - dim // 2
-            
-            output.paste(txt_img, (paste_x, paste_y), txt_img)
-            
-            # Mark occupancy
-            occupied[top:bottom, left:right] = True
-            
-            # Record position for proximity check
-            if word not in word_positions:
-                word_positions[word] = []
-            word_positions[word].append((x, y))
-            
+            if len(ys) == 0:
+                consecutive_failures += 1; continue
+                
             consecutive_failures = 0
-            color_idx += 1
+            idx_list = random.sample(range(len(ys)), min(len(ys), batch_size))
+            bf, placed_in_batch = [], 0
             
-            consecutive_failures = 0
-            color_idx += 1
+            for idx in idx_list:
+                if pixels_placed_this_pass >= target_pass_pixels or placed_in_batch >= max_per_batch: break
+                lx, ly = xs[idx], ys[idx]
+                if any(not (lx + wl_w_base <= bx or lx >= bx + bw or ly + wl_h_base <= by or ly >= by + bh) for bx, by, bw, bh in bf): continue
+                
+                # PASTE
+                px, py = int((lx + wl_w_base/2) * RENDER_SCALE - final_w/2), int((ly + wl_h_base/2) * RENDER_SCALE - final_h/2)
+                render_canvas.alpha_composite(txt_final, (max(0, px), max(0, py)))
+                
+                if angle == 0: occ_h[ly:ly+wl_h_base, lx:lx+wl_w_base] = 1
+                else: occ_v[ly:ly+wl_h_base, lx:lx+wl_w_base] = 1
+                
+                bf.append((lx, ly, wl_w_base, wl_h_base))
+                pixels_placed_this_pass += (wl_w_base * wl_h_base)
+                if angle == 0: horiz_pixels += (wl_w_base * wl_h_base)
+                else: vert_pixels += (wl_w_base * wl_h_base)
+                
+                dirty_integral = True; dirty_render = True 
+                placed_in_batch += 1; color_idx += 1
+        
+            # Update UI if changed and throttled
+            now = time.time()
+            if dirty_render and now - last_yield_time > 0.4:
+                yield (render_canvas, False)
+                last_yield_time = now
+                dirty_render = False
+
+        if DEBUG_PERF:
+            pass_duration = (time.time() - pass_start) * 1000
+            print(f"  [Pass {lfs}pt] Finished in {pass_duration:.0f}ms. Placed {pixels_placed_this_pass}px ({pixels_placed_this_pass/total_mask_pixels*100:.1f}%)")
+        else:
+            pass_duration = (time.time() - pass_start) * 1000
             
-        # Yield the current state of the image after each pass
-        yield output # Yield RGBA
+        total_pixels_placed += pixels_placed_this_pass
+
+        if telemetry_sink is not None:
+            telemetry_sink.append({
+                'event': 'pass_complete',
+                'font_size': lfs,
+                'render_font_size': render_font_base,
+                'duration_ms': pass_duration,
+                'target_pixels': int(target_pass_pixels),
+                'actual_pixels': int(pixels_placed_this_pass),
+                'coverage_pct': (pixels_placed_this_pass / total_mask_pixels) * 100,
+                'horiz_pct': (horiz_pixels / pixels_placed_this_pass * 100) if pixels_placed_this_pass > 0 else 0,
+                'vert_pct': (vert_pixels / pixels_placed_this_pass * 100) if pixels_placed_this_pass > 0 else 0
+            })
+                
+        yield (render_canvas, False)
     
-    # Final yield to ensure we catch everything
-    yield output # Yield RGBA
+    if DEBUG_PERF:
+        final_coverage = (total_pixels_placed / total_mask_pixels) * 100
+        print(f"--- GENERATION COMPLETE --- Total Coverage: {final_coverage:.1f}%")
+        
+    finalize_start = time.time()
+    
+    # --- ADD TESTING LEGEND (TOP-LEFT) ---
+    if show_legend:
+        # Draw legend with accurate font sizes and no overlap
+        legend_padding = 20
+        row_heights = [max(18, int(lfs * RENDER_SCALE * 0.8)) for lfs in layout_font_sizes]
+        total_legend_h = sum(row_heights) + (legend_padding * 2) + (10 * len(row_heights))
+        
+        legend_w = 400
+        overlay = Image.new('RGBA', (legend_w, total_legend_h), (0, 0, 0, 180))
+        legend_draw = ImageDraw.Draw(overlay)
+        
+        current_y = legend_padding
+        for i, lfs in enumerate(layout_font_sizes):
+            rfs = lfs * RENDER_SCALE
+            sample_word = random.choice(all_words)
+            display_size = max(6, int(rfs * 0.9))
+            legend_font = get_font(display_size)
+            text_label = f"Size {rfs}: {sample_word}"
+            legend_draw.text((20, current_y), text_label, font=legend_font, fill=(255, 255, 255, 255))
+            current_y += row_heights[i] + 10
+        
+        render_canvas.alpha_composite(overlay, (30, 30))
+    
+    finalize_end = time.time()
+    finalize_duration_ms = (finalize_end - finalize_start) * 1000
+    if telemetry_sink is not None:
+        telemetry_sink.append({
+            'event': 'phase_complete',
+            'phase': 'finalize',
+            'duration_ms': finalize_duration_ms
+        })
 
+    yield (render_canvas, True)
 
-def process_image(image_data, threshold, invert, words, color_scheme, font_size_key, background_color='transparent', custom_colors=None):
-    """Main processing function."""
-    # Decode image
-    if ',' in image_data:
-        image_data = image_data.split(',')[1]
+def process_image(image_data, words, color_scheme, background_color='transparent', threshold=128, invert=False, custom_colors=None):
+    if ',' in image_data: image_data = image_data.split(',')[1]
     image_bytes = base64.b64decode(image_data)
     image = Image.open(io.BytesIO(image_bytes))
-    
-    # Convert to RGB
-    if image.mode in ('RGBA', 'P'):
-        background = Image.new('RGB', image.size, (255, 255, 255))
-        if image.mode == 'P':
-            image = image.convert('RGBA')
-        if image.mode == 'RGBA':
-            background.paste(image, mask=image.split()[3])
-        else:
-            background.paste(image)
-        image = background
-    elif image.mode != 'RGB':
-        image = image.convert('RGB')
-    
-    # Resize if needed
-    width, height = image.size
-    # Resize to target dimension (Upscale or Downscale)
-    ratio = min(MAX_DIMENSION / width, MAX_DIMENSION / height)
-    # Only resize if the ratio is significantly different from 1 (avoid minor resampling artifacts if exact)
-    if abs(ratio - 1.0) > 0.001:
-        new_size = (int(width * ratio), int(height * ratio))
-        image = image.resize(new_size, Image.LANCZOS)
-        width, height = new_size
-    
-    # Create mask
-    mask = create_mask(image, threshold, invert)
-    
-    # Get colors
     if color_scheme == 'custom' and custom_colors:
         colors = [c for c in custom_colors if c.startswith('#')]
-        if not colors:
-            colors = COLOR_SCHEMES['warm_red']
+        if not colors: colors = COLOR_SCHEMES['warm_red']
     else:
         colors = COLOR_SCHEMES.get(color_scheme, COLOR_SCHEMES['warm_red'])
-    
-    # Calculate font size based on image size
-    base_size = FONT_SIZES.get(font_size_key, FONT_SIZES['medium'])
-    scale = min(width, height) / 500
-    base_font_size = max(10, int(base_size * scale))
-    
-    # Generate typographic image (Streaming)
-    for intermediate_result in place_words_dense(width, height, mask, words, colors, base_font_size, background_color):
-        # Convert to PNG
-        output_buffer = io.BytesIO()
-        intermediate_result.save(output_buffer, format='PNG')
-        output_buffer.seek(0)
         
-        result_base64 = base64.b64encode(output_buffer.read()).decode('utf-8')
-        yield f"data:image/png;base64,{result_base64}"
-
+    for res_img, is_final in place_words_dual_res(image, words, colors, background_color, threshold, invert):
+        io_start = time.time()
+        buf = io.BytesIO()
+        if is_final:
+            # PNG compression level 1 is much faster than level 6 (default)
+            res_img.save(buf, format='PNG', compress_level=1)
+            mime = "image/png"
+        else:
+            # Quality 60 is plenty for a 0.4s preview frame
+            res_img.convert('RGB').save(buf, format='JPEG', quality=60)
+            mime = "image/jpeg"
+        buf.seek(0)
+        encoded = base64.b64encode(buf.read()).decode('utf-8')
+        yield json.dumps({'result': f"data:{mime};base64,{encoded}"}) + '\n'
+        
+        if DEBUG_PERF:
+            io_duration = (time.time() - io_start) * 1000
+            print(f"  [I/O Trace] Encode & Yield: {io_duration:.1f}ms ({'PNG' if is_final else 'JPEG'})")
 
 @app.route('/')
-def index():
-    return send_from_directory('static', 'index.html')
-
-
+def index(): return send_from_directory('static', 'index.html')
 @app.route('/<path:path>')
-def static_files(path):
-    return send_from_directory('static', path)
-
+def static_files(path): return send_from_directory('static', path)
 
 @app.route('/api/generate', methods=['POST'])
 def generate():
     try:
         data = request.get_json()
-        
-        image_data = data.get('image')
-        threshold = int(data.get('threshold', 128))
-        invert = bool(data.get('invert', False))
-        words = data.get('words', [])
-        color_scheme = data.get('colorScheme', 'warm_red')
-        font_size = data.get('fontSize', 'medium')
-        background_color = data.get('backgroundColor', 'transparent')
+        image_data, words = data.get('image'), data.get('words', [])
+        color_scheme, background_color = data.get('colorScheme', 'warm_red'), data.get('backgroundColor', 'transparent')
+        threshold, invert = int(data.get('threshold', 128)), bool(data.get('invert', False))
         custom_colors = data.get('customColors', [])
-        
-        if not image_data:
-            return jsonify({'error': 'No image provided'}), 400
-        if not words:
-            return jsonify({'error': 'No words provided'}), 400
-        
-        def generate_stream():
+        if not image_data or not words: return jsonify({'error': 'Missing data'}), 400
+        def stream():
             try:
-                for result_uri in process_image(
-                    image_data, threshold, invert, words,
-                    color_scheme, font_size, background_color, custom_colors
-                ):
-                    # Format as Server-Sent Event or just ndjson
-                    # We'll use a simple line-delimited JSON for ease of parsing
-                    yield json.dumps({'result': result_uri}) + '\n'
+                for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, custom_colors):
+                    yield json_chunk
             except Exception as e:
-                import traceback
-                traceback.print_exc()
+                import traceback; traceback.print_exc()
                 yield json.dumps({'error': str(e)}) + '\n'
-
-        return Response(generate_stream(), mimetype='application/x-ndjson')
-    
+        return Response(stream(), mimetype='application/x-ndjson')
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
-
 @app.route('/api/color-schemes', methods=['GET'])
-def get_color_schemes():
-    return jsonify(COLOR_SCHEMES)
-
+def get_color_schemes(): return jsonify(COLOR_SCHEMES)
 
 if __name__ == '__main__':
     print("Starting Typographic Portrait Generator...")
-    print("Open http://localhost:5000 in your browser")
-    app.run(debug=True, port=5000)
+    app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
