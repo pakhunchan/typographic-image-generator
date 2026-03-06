@@ -343,7 +343,7 @@ async function handleGenerate() {
 
     // Fallback if empty to avoid error
     if (words.length === 0) {
-        words = ['*LOVE', 'HAPPY', 'FUN'];
+        words = ['*LOVE', 'DREAM', 'WONDER', 'GLOW'];
     }
 
     // UI state: loading
