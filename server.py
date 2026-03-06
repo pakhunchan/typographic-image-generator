@@ -230,7 +230,8 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
             angle = random.choice(angle_choices)
             word = random.choice(featured if is_feature else all_words)
             
-            cache_key = (word, angle)
+            used_color = rgb_colors[color_idx % len(rgb_colors)]
+            cache_key = (word, angle, used_color)
             if cache_key in render_cache:
                 txt_final, wl_w_base, wl_h_base, wl_w_long, wl_h_long, final_pw, final_ph, rfs = render_cache[cache_key]
             else:
@@ -245,7 +246,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
 
                 txt_tmp = Image.new('RGBA', (tmp_dim, tmp_dim), (0,0,0,0))
                 draw_tmp = ImageDraw.Draw(txt_tmp)
-                draw_tmp.text((tmp_dim/2, tmp_dim/2), word, font=font_preview, anchor='mm', fill=rgb_colors[color_idx % len(rgb_colors)]+(255,))
+                draw_tmp.text((tmp_dim/2, tmp_dim/2), word, font=font_preview, anchor='mm', fill=used_color+(255,))
 
                 if angle == 90: txt_tmp = txt_tmp.transpose(Image.ROTATE_90)
                 elif angle == -90: txt_tmp = txt_tmp.transpose(Image.ROTATE_270)
@@ -312,7 +313,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
                 render_canvas.alpha_composite(txt_final, (max(0, px), max(0, py)))
 
                 # Store placement for high-quality re-render
-                placements.append((word, angle, lx, ly, wl_w_base, wl_h_base, rfs, rgb_colors[color_idx % len(rgb_colors)]))
+                placements.append((word, angle, lx, ly, wl_w_base, wl_h_base, rfs, used_color))
                 
                 if angle == 0: occ_h[ly:ly+wl_h_base, lx:lx+wl_w_base] = 1
                 else: occ_v[ly:ly+wl_h_base, lx:lx+wl_w_base] = 1
