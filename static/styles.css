@@ -40,7 +40,7 @@
     --featured-bg: rgba(184, 134, 11, 0.06);
 
     /* Typography */
-    --font-display: 'Playfair Display', Georgia, serif;
+    --font-display: 'Cormorant Garamond', Georgia, serif;
     --font-body: 'DM Sans', -apple-system, BlinkMacSystemFont, sans-serif;
     --font-mono: 'DM Mono', 'SF Mono', monospace;
 
@@ -108,26 +108,39 @@ body {
 /* ── Brand ──────────────────────────────────── */
 
 .brand {
-    padding: 1.25rem 1.5rem 1rem;
+    padding: 1.5rem 1.5rem 1.25rem;
     border-bottom: 1px solid var(--border);
     animation: slideIn 0.5s ease both;
 }
 
 .brand h1 {
     font-family: var(--font-display);
-    font-size: 1.6rem;
+    font-size: 2.6rem;
     font-weight: 500;
-    letter-spacing: -0.01em;
-    line-height: 1.1;
-    color: var(--ink);
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: #2c2420;
+    display: inline-block;
+}
+
+.brand h1::after {
+    content: '';
+    display: block;
+    width: 40px;
+    height: 3px;
+    background: var(--accent);
+    border-radius: 2px;
+    margin-top: 0.5rem;
 }
 
 .tagline {
-    font-family: var(--font-display);
-    font-style: italic;
-    font-size: 0.85rem;
+    font-family: var(--font-mono);
+    font-style: normal;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     color: var(--ink-muted);
-    margin-top: 0.15rem;
+    margin-top: 0.5rem;
 }
 
 /* ── Controls area ──────────────────────────── */
@@ -687,7 +700,7 @@ input[type="range"]::-moz-range-thumb {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 2.5rem;
+    padding: 1.5rem;
     overflow: hidden;
     position: relative;
     /* Subtle grid pattern for the workspace */
@@ -702,9 +715,10 @@ input[type="range"]::-moz-range-thumb {
     box-shadow:
         0 1px 3px rgba(0, 0, 0, 0.04),
         0 8px 40px rgba(0, 0, 0, 0.07);
-    min-height: 500px;
-    width: 100%;
+    min-height: 400px;
+    width: 85%;
     max-width: 900px;
+    height: 75vh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -760,10 +774,18 @@ input[type="range"]::-moz-range-thumb {
     line-height: 1.6;
 }
 
+.canvas.has-result {
+    height: auto;
+    min-height: 0;
+    width: auto;
+    max-width: 90%;
+}
+
 .canvas-result {
     max-width: 100%;
-    max-height: 80vh;
+    max-height: 85vh;
     object-fit: contain;
+    display: block;
 }
 
 /* ── Utility ────────────────────────────────── */

@@ -392,6 +392,7 @@ async function handleGenerate() {
         // Show result placeholder initially (to prepare for first frame)
         resultPlaceholder.classList.add('hidden');
         resultImage.classList.remove('hidden');
+        resultContainer.classList.add('has-result');
         downloadBtn.classList.add('hidden'); // Hide until finished
 
         while (true) {
@@ -428,6 +429,7 @@ async function handleGenerate() {
         alert('Generation failed: ' + error.message);
         resultPlaceholder.classList.remove('hidden');
         resultImage.classList.add('hidden');
+        resultContainer.classList.remove('has-result');
     } finally {
         setLoading(false);
     }
