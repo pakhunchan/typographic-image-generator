@@ -49,6 +49,9 @@ function init() {
 // Event Listeners
 function setupEventListeners() {
     // Upload zone interactions
+    // Stop propagation on imageInput so programmatic .click() doesn't bubble
+    // back up to uploadZone and create an infinite loop
+    imageInput.addEventListener('click', (e) => e.stopPropagation());
     uploadZone.addEventListener('click', () => imageInput.click());
     uploadZone.addEventListener('dragover', handleDragOver);
     uploadZone.addEventListener('dragleave', handleDragLeave);

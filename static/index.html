@@ -4,70 +4,75 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Typographic Portrait Generator</title>
+    <title>Typographic — Word Portrait Studio</title>
     <meta name="description"
-        content="Convert images into beautiful typographic art. Fill shapes with your own words and phrases.">
+        content="Transform photographs into beautiful typographic portraits. Fill silhouettes with your own words.">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=DM+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
 </head>
 
 <body>
-    <div class="app-container">
-        <header class="header">
-            <h1>Typographic Portrait Generator</h1>
-            <p>Transform images into stunning word art</p>
-        </header>
+    <div class="app">
+        <aside class="sidebar">
+            <header class="brand">
+                <h1>Typographic</h1>
+                <p class="tagline">Word Portrait Studio</p>
+            </header>
 
-        <main class="main-content">
-            <aside class="control-panel">
-                <!-- 1. Image Section -->
-                <section class="control-section">
-                    <div class="section-header">
-                        <h2>1. Upload Image</h2>
-                    </div>
+            <div class="controls">
+                <!-- Image Upload -->
+                <section class="panel">
+                    <h2 class="panel-label">Image</h2>
                     <div class="upload-zone" id="uploadZone">
                         <input type="file" id="imageInput" accept="image/*" hidden>
                         <div class="upload-placeholder" id="uploadPlaceholder">
-                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="1.5">
                                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                                 <polyline points="17 8 12 3 7 8" />
                                 <line x1="12" y1="3" x2="12" y2="15" />
                             </svg>
-                            <span>Click or Drop Here</span>
+                            <span>Drop image or click to browse</span>
                         </div>
                         <img id="previewImage" class="preview-image hidden" alt="Preview">
                     </div>
                 </section>
 
-                <!-- 2. Words Section -->
-                <section class="control-section">
-                    <div class="section-header">
-                        <h2>2. Your Words</h2>
-                        <div class="word-toolbar">
-                            <button type="button" class="tool-btn" id="boldBtn"
-                                title="Feature Word (Ctrl+B)"><b>B</b></button>
-                            <span class="toolbar-hint">Bold words will be 'Featured' and appear larger</span>
-                        </div>
+                <!-- Words -->
+                <section class="panel">
+                    <div class="panel-header">
+                        <h2 class="panel-label">Words</h2>
+                        <button type="button" class="feature-btn" id="boldBtn" title="Feature word (Ctrl+B)">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                stroke-width="2.5">
+                                <path d="M6 4h8a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                                <path d="M6 12h9a4 4 0 0 1 4 4 4 4 0 0 1-4 4H6z" />
+                            </svg>
+                            <span>Feature</span>
+                        </button>
                     </div>
-                    <div id="wordsInput" class="word-input-area" contenteditable="true" spellcheck="false">
+                    <div id="wordsInput" class="word-editor" contenteditable="true" spellcheck="false">
                         <div class="word-line featured">LOVE</div>
                         <div class="word-line">HAPPY</div>
                         <div class="word-line">FUN</div>
                     </div>
-                    <div class="word-count" id="wordCount">3 words (1 featured)</div>
+                    <div class="word-meta">
+                        <span class="word-count" id="wordCount">3 words (1 featured)</span>
+                        <span class="word-hint">Ctrl+B to feature</span>
+                    </div>
                 </section>
 
-                <!-- 3. Advanced Settings (Condensed) -->
-                <section class="control-section advanced-settings">
-                    <div class="section-header">
-                        <h2>3. Design Settings</h2>
-                    </div>
-
-                    <div class="settings-list">
-                        <div class="form-group form-row">
-                            <label for="colorScheme">Color Scheme</label>
-                            <div class="input-with-preview">
+                <!-- Settings -->
+                <section class="panel">
+                    <h2 class="panel-label">Settings</h2>
+                    <div class="settings">
+                        <div class="setting-row">
+                            <label for="colorScheme">Palette</label>
+                            <div class="select-with-preview">
                                 <select id="colorScheme">
                                     <option value="warm_red">Warm Red</option>
                                     <option value="ocean_blue">Ocean Blue</option>
@@ -80,16 +85,16 @@
                             </div>
                         </div>
 
-                        <div class="form-group form-row">
-                            <label for="fontSize">Font Size</label>
+                        <div class="setting-row">
+                            <label for="fontSize">Density</label>
                             <select id="fontSize">
-                                <option value="small">Small</option>
-                                <option value="medium" selected>Medium</option>
-                                <option value="large">Large</option>
+                                <option value="small">Fine</option>
+                                <option value="medium" selected>Regular</option>
+                                <option value="large">Bold</option>
                             </select>
                         </div>
 
-                        <div class="form-group form-row">
+                        <div class="setting-row">
                             <label for="backgroundColor">Background</label>
                             <select id="backgroundColor">
                                 <option value="transparent" selected>Transparent</option>
@@ -98,70 +103,68 @@
                             </select>
                         </div>
 
-                        <div class="form-group threshold-group">
-                            <label for="thresholdSlider">Shape Fill (%)</label>
-                            <div class="slider-container">
-                                <input type="range" id="thresholdSlider" min="0" max="100" value="50">
-                                <span class="slider-value" id="thresholdValue">50%</span>
+                        <div class="setting-group">
+                            <div class="setting-row">
+                                <label for="thresholdSlider">Fill</label>
+                                <div class="range-control">
+                                    <input type="range" id="thresholdSlider" min="0" max="100" value="50">
+                                    <span class="range-value" id="thresholdValue">50%</span>
+                                </div>
                             </div>
-                            <label class="checkbox-label">
+                            <label class="toggle-label">
                                 <input type="checkbox" id="invertCheckbox">
-                                <span class="checkmark"></span>
-                                Invert dark/light
+                                <span class="toggle-switch"></span>
+                                <span>Invert</span>
                             </label>
                         </div>
 
-                        <div class="form-group custom-colors hidden" id="customColorsGroup">
-                            <label>Custom Colors (comma hex)</label>
+                        <div class="custom-colors hidden" id="customColorsGroup">
+                            <label>Colors</label>
                             <input type="text" id="customColors" placeholder="#FF0000, #00FF00, #0000FF">
                         </div>
                     </div>
                 </section>
-            </aside>
+            </div>
 
-            <section class="preview-section">
-                <div class="result-container" id="resultContainer">
-                    <div class="result-placeholder" id="resultPlaceholder">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="1.5">
-                            <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                            <circle cx="8.5" cy="8.5" r="1.5" />
-                            <polyline points="21 15 16 10 5 21" />
+            <div class="sidebar-actions">
+                <button class="btn-generate" id="generateBtn">
+                    <span class="btn-text">Generate</span>
+                    <span class="btn-loading hidden">
+                        <svg class="spinner" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
+                                stroke-dasharray="31.4 31.4" />
                         </svg>
-                        <p>Your typographic portrait will appear here</p>
+                        <span>Creating...</span>
+                    </span>
+                </button>
+
+                <button class="btn-download hidden" id="downloadBtn">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                        stroke-width="2">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                        <polyline points="7 10 12 15 17 10" />
+                        <line x1="12" y1="15" x2="12" y2="3" />
+                    </svg>
+                    Download PNG
+                </button>
+                <a id="hiddenDownloadLink" style="display: none;"></a>
+            </div>
+        </aside>
+
+        <main class="canvas-area">
+            <div class="canvas" id="resultContainer">
+                <div class="canvas-placeholder" id="resultPlaceholder">
+                    <div class="placeholder-content">
+                        <span class="placeholder-icon">Aa</span>
+                        <p>Upload an image and hit Generate<br>to create your word portrait</p>
                     </div>
-                    <img id="resultImage" class="result-image hidden" alt="Generated typographic portrait">
                 </div>
-            </section>
-
-            <aside class="action-panel">
-                <div class="action-group">
-                    <button class="btn btn-primary btn-action" id="generateBtn">
-                        <span class="btn-text">GENERATE</span>
-                        <span class="btn-loading hidden">
-                            <svg class="spinner" viewBox="0 0 24 24">
-                                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" fill="none"
-                                    stroke-dasharray="31.4 31.4" />
-                            </svg>
-                        </span>
-                    </button>
-
-                    <button class="btn btn-secondary btn-action hidden" id="downloadBtn">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            stroke-width="2">
-                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                            <polyline points="7 10 12 15 17 10" />
-                            <line x1="12" y1="15" x2="12" y2="3" />
-                        </svg>
-                        DOWNLOAD PNG
-                    </button>
-                    <a id="hiddenDownloadLink" style="display: none;"></a>
-                </div>
-            </aside>
+                <img id="resultImage" class="canvas-result hidden" alt="Generated typographic portrait">
+            </div>
         </main>
     </div>
 
-    <script src="app.js?v=10"></script>
+    <script src="app.js?v=11"></script>
 </body>
 
 </html>
