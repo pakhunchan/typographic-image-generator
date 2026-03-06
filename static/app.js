@@ -40,10 +40,77 @@ let originalFileName = 'image';
 
 // Initialize
 function init() {
+    initCustomSelects();
     setupEventListeners();
     updateColorPreview();
     updateWordCount();
     updateBackgroundPreview();
+}
+
+// Custom styled selects (wraps native <select> for visual styling)
+function initCustomSelects() {
+    document.querySelectorAll('select').forEach(nativeSelect => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'custom-select';
+
+        const trigger = document.createElement('button');
+        trigger.type = 'button';
+        trigger.className = 'custom-select-trigger';
+
+        const label = document.createElement('span');
+        label.className = 'custom-select-label';
+        label.textContent = nativeSelect.options[nativeSelect.selectedIndex].text;
+
+        const arrow = document.createElement('span');
+        arrow.className = 'custom-select-arrow';
+        arrow.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>`;
+
+        trigger.appendChild(label);
+        trigger.appendChild(arrow);
+
+        const dropdown = document.createElement('div');
+        dropdown.className = 'custom-select-dropdown';
+
+        Array.from(nativeSelect.options).forEach(option => {
+            const item = document.createElement('div');
+            item.className = 'custom-select-option';
+            item.dataset.value = option.value;
+            item.textContent = option.text;
+            if (option.selected) item.classList.add('selected');
+
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                nativeSelect.value = option.value;
+                nativeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+                label.textContent = option.text;
+                dropdown.querySelectorAll('.custom-select-option').forEach(o => o.classList.remove('selected'));
+                item.classList.add('selected');
+                wrapper.classList.remove('open');
+            });
+
+            dropdown.appendChild(item);
+        });
+
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other open selects
+            document.querySelectorAll('.custom-select.open').forEach(s => {
+                if (s !== wrapper) s.classList.remove('open');
+            });
+            wrapper.classList.toggle('open');
+        });
+
+        nativeSelect.style.display = 'none';
+        nativeSelect.parentNode.insertBefore(wrapper, nativeSelect);
+        wrapper.appendChild(trigger);
+        wrapper.appendChild(dropdown);
+        wrapper.appendChild(nativeSelect);
+    });
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.custom-select.open').forEach(s => s.classList.remove('open'));
+    });
 }
 
 // Event Listeners
