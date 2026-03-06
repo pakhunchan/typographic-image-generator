@@ -95,7 +95,7 @@ def find_valid_positions_vectorized(integral_occupancy, integral_mask, width, he
     valid_grid = (occupancy_sums == 0) & (mask_sums >= required_mask_sum)
     return np.nonzero(valid_grid)
 
-def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, telemetry_sink=None, show_legend=False):
+def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, texture='standard', telemetry_sink=None, show_legend=False):
     orig_w, orig_h = image.size
     start_total = time.time()
 
@@ -126,8 +126,13 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
     all_words = featured + regular if featured or regular else ['TEXT']
     rgb_colors = [hex_to_rgb(c) for c in colors]
     
-    # Updated geometric scale: 18pt to 4pt
-    layout_font_sizes = [18, 14, 11, 8, 6, 4, 3]
+    # Font size scales by text size setting
+    TEXT_SIZE_SCALES = {
+        'small':  [12, 9, 7, 5, 4, 3, 2],
+        'medium': [18, 14, 11, 8, 6, 4, 3],
+        'large':  [28, 22, 16, 12, 8, 6, 4],
+    }
+    layout_font_sizes = TEXT_SIZE_SCALES.get(texture, TEXT_SIZE_SCALES['medium'])
     
     # --- DYNAMIC GROUPING LOGIC ---
     num_fonts = len(layout_font_sizes)
@@ -435,7 +440,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
 
     yield (final_canvas, True)
 
-def process_image(image_data, words, color_scheme, background_color='transparent', threshold=128, invert=False, custom_colors=None):
+def process_image(image_data, words, color_scheme, background_color='transparent', threshold=128, invert=False, texture='standard', custom_colors=None):
     if ',' in image_data: image_data = image_data.split(',')[1]
     image_bytes = base64.b64decode(image_data)
     image = Image.open(io.BytesIO(image_bytes))
@@ -444,8 +449,8 @@ def process_image(image_data, words, color_scheme, background_color='transparent
         if not colors: colors = COLOR_SCHEMES['warm_red']
     else:
         colors = COLOR_SCHEMES.get(color_scheme, COLOR_SCHEMES['warm_red'])
-        
-    for res_img, is_final in place_words_dual_res(image, words, colors, background_color, threshold, invert):
+
+    for res_img, is_final in place_words_dual_res(image, words, colors, background_color, threshold, invert, texture):
         io_start = time.time()
         buf = io.BytesIO()
         if is_final:
@@ -480,11 +485,12 @@ def generate():
         image_data, words = data.get('image'), data.get('words', [])
         color_scheme, background_color = data.get('colorScheme', 'warm_red'), data.get('backgroundColor', 'transparent')
         threshold, invert = int(data.get('threshold', 128)), bool(data.get('invert', False))
+        texture = data.get('fontSize', 'standard')
         custom_colors = data.get('customColors', [])
         if not image_data or not words: return jsonify({'error': 'Missing data'}), 400
         def stream():
             try:
-                for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, custom_colors):
+                for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, texture, custom_colors):
                     yield json_chunk
             except Exception as e:
                 import traceback; traceback.print_exc()

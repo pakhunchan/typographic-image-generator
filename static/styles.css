@@ -452,6 +452,10 @@ input[type="text"]:focus {
     background: var(--accent-light);
 }
 
+/* Text size options — visually represent their size */
+.custom-select-option[data-value="small"] { font-size: 0.7rem; }
+.custom-select-option[data-value="large"] { font-size: 0.95rem; }
+
 /* Color palette gradient bars in dropdown options */
 .custom-select-option:has(.option-gradient-bar) {
     display: flex;
