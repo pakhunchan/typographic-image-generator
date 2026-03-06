@@ -404,6 +404,10 @@ def process_image(image_data, words, color_scheme, background_color='transparent
             # PNG compression level 1 is much faster than level 6 (default)
             res_img.save(buf, format='PNG', compress_level=1)
             mime = "image/png"
+        elif background_color == 'transparent':
+            # Transparent mode: must use PNG to preserve alpha in preview frames
+            res_img.save(buf, format='PNG', compress_level=1)
+            mime = "image/png"
         else:
             # Quality 60 is plenty for a 0.4s preview frame
             res_img.convert('RGB').save(buf, format='JPEG', quality=60)
