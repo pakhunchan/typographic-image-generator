@@ -69,7 +69,7 @@ def get_font(size):
             
     try:
         return ImageFont.truetype("Arial.ttf", size)
-    except:
+    except Exception:
         return ImageFont.load_default()
 
 def compute_integral_image(img):
