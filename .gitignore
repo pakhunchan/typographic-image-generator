@@ -8,3 +8,4 @@ venv/
 !static/*.png
 server.log
 .playwright-mcp/
+.vercel
