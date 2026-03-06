@@ -25,6 +25,7 @@
 
     /* Ink palette */
     --ink: #1a1816;
+    --ink-warm: #2c2420;
     --ink-secondary: #5c5650;
     --ink-muted: #9b9389;
     --ink-faint: #c4bdb3;
@@ -119,7 +120,7 @@ body {
     font-weight: 500;
     letter-spacing: -0.02em;
     line-height: 1;
-    color: #2c2420;
+    color: var(--ink-warm);
     display: inline-block;
 }
 

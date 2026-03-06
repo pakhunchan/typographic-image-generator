@@ -95,7 +95,7 @@ def render_word_image(word, angle, font_size, color_rgb, dummy_draw):
         return None
     return txt_tmp.crop(ink_bbox)
 
-def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, texture='standard', telemetry_sink=None, show_legend=False):
+def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, text_size='standard', telemetry_sink=None, show_legend=False):
     orig_w, orig_h = image.size
     start_total = time.time()
 
@@ -132,7 +132,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
         'medium': [18, 14, 11, 8, 6, 4, 3],
         'large':  [28, 22, 16, 12, 8, 6, 4],
     }
-    layout_font_sizes = TEXT_SIZE_SCALES.get(texture, TEXT_SIZE_SCALES['medium'])
+    layout_font_sizes = TEXT_SIZE_SCALES.get(text_size, TEXT_SIZE_SCALES['medium'])
     
     # --- DYNAMIC GROUPING LOGIC ---
     num_fonts = len(layout_font_sizes)
@@ -404,7 +404,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
 
     yield (final_canvas, True)
 
-def process_image(image_data, words, color_scheme, background_color='transparent', threshold=128, invert=False, texture='standard', custom_colors=None):
+def process_image(image_data, words, color_scheme, background_color='transparent', threshold=128, invert=False, text_size='standard', custom_colors=None):
     if ',' in image_data: image_data = image_data.split(',')[1]
     image_bytes = base64.b64decode(image_data)
     image = Image.open(io.BytesIO(image_bytes))
@@ -414,7 +414,7 @@ def process_image(image_data, words, color_scheme, background_color='transparent
     else:
         colors = COLOR_SCHEMES.get(color_scheme, COLOR_SCHEMES['warm_red'])
 
-    for res_img, is_final in place_words_dual_res(image, words, colors, background_color, threshold, invert, texture):
+    for res_img, is_final in place_words_dual_res(image, words, colors, background_color, threshold, invert, text_size):
         io_start = time.time()
         buf = io.BytesIO()
         if is_final:
@@ -448,12 +448,12 @@ def generate():
         image_data, words = data.get('image'), data.get('words', [])
         color_scheme, background_color = data.get('colorScheme', 'warm_red'), data.get('backgroundColor', 'transparent')
         threshold, invert = int(data.get('threshold', 128)), bool(data.get('invert', False))
-        texture = data.get('fontSize', 'standard')
+        text_size = data.get('fontSize', 'standard')
         custom_colors = data.get('customColors', [])
         if not image_data or not words: return jsonify({'error': 'Missing data'}), 400
         def stream():
             try:
-                for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, texture, custom_colors):
+                for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, text_size, custom_colors):
                     yield json_chunk
             except Exception as e:
                 logger.exception("Error during image generation")
