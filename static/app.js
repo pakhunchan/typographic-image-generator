@@ -458,7 +458,7 @@ function handleDownload() {
     }
 
     try {
-        const fileName = `PHC_typographic_${originalFileName}.png`;
+        const fileName = `typographic-${originalFileName}.png`;
 
         // Convert data URI to Blob for reliable downloads across browsers
         const dataUri = resultImage.src;
