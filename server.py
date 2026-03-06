@@ -55,23 +55,28 @@ def get_font(size):
     if size < 1: size = 1
     
     font_names = [
+        # macOS
         '/System/Library/Fonts/Supplemental/Impact.ttf',
         '/System/Library/Fonts/Supplemental/Arial Black.ttf',
         '/System/Library/Fonts/Supplemental/Arial Bold.ttf',
         '/System/Library/Fonts/Helvetica-Bold.ttc',
-        'Impact', 'Arial Black', 'Arial Bold', 'Helvetica-Bold', 'Arial'
+        'Impact', 'Arial Black', 'Arial Bold', 'Helvetica-Bold', 'Arial',
+        # Linux (Vercel / Ubuntu)
+        '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf',
+        '/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf',
+        '/usr/share/fonts/truetype/freefont/FreeSansBold.ttf',
     ]
-    
+
     for name in font_names:
         try:
             return ImageFont.truetype(name, size)
         except Exception:
             continue
-            
+
     try:
         return ImageFont.truetype("Arial.ttf", size)
     except Exception:
-        return ImageFont.load_default()
+        return ImageFont.load_default(size=size)
 
 def compute_integral_image(img):
     return img.cumsum(axis=0).cumsum(axis=1)
