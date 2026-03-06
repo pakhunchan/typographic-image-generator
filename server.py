@@ -11,10 +11,18 @@ import base64
 import random
 import json
 import time
+import logging
 from flask import Flask, request, jsonify, send_from_directory, Response
 from flask_cors import CORS
 from PIL import Image, ImageDraw, ImageFont
 import numpy as np
+
+logging.basicConfig(
+    format='%(asctime)s %(levelname)s %(message)s',
+    datefmt='%H:%M:%S',
+    level=logging.INFO,
+)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__, static_folder='static')
 CORS(app)
@@ -32,9 +40,6 @@ LAYOUT_REF_SIZE = 512
 PREVIEW_MAX_SIZE = 2048   # Fast placement & streaming
 FINAL_MAX_SIZE = 4096     # Crisp output (re-rendered at end)
 RENDER_SCALE = 4          # Layout-to-preview ratio
-
-# Performance Tracing Toggle
-DEBUG_PERF = True
 
 def hex_to_rgb(hex_color):
     hex_color = hex_color.lstrip('#')
@@ -145,8 +150,8 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
     last_yield_time = time.time()
     angles = [0, 90]
     
-    print(f"Dual-res packing (N/3 Hierarchy): {layout_w}x{layout_h} layout -> {render_w}x{render_h} render")
-    print(f"Groups: Headers={headers}, Grout={grout}")
+    logger.info("Dual-res packing (N/3 Hierarchy): %dx%d layout -> %dx%d render", layout_w, layout_h, render_w, render_h)
+    logger.info("Groups: Headers=%s, Grout=%s", headers, grout)
     
     setup_end = time.time()
     setup_duration_ms = (setup_end - start_total) * 1000
@@ -189,7 +194,7 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
             
         consecutive_failures = 0
         
-        print(f"--- FONT PASS: {lfs}pt (Target: {int(target_pass_pixels)}px) ---")
+        logger.info("--- FONT PASS: %dpt (Target: %dpx) ---", lfs, int(target_pass_pixels))
         
         horiz_pixels, vert_pixels = 0, 0
         
@@ -312,12 +317,9 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
                 last_yield_time = now
                 dirty_render = False
 
-        if DEBUG_PERF:
-            pass_duration = (time.time() - pass_start) * 1000
-            print(f"  [Pass {lfs}pt] Finished in {pass_duration:.0f}ms. Placed {pixels_placed_this_pass}px ({pixels_placed_this_pass/total_mask_pixels*100:.1f}%)")
-        else:
-            pass_duration = (time.time() - pass_start) * 1000
-            
+        pass_duration = (time.time() - pass_start) * 1000
+        logger.info("  [Pass %dpt] Finished in %.0fms. Placed %dpx (%.1f%%)", lfs, pass_duration, pixels_placed_this_pass, pixels_placed_this_pass / total_mask_pixels * 100)
+
         total_pixels_placed += pixels_placed_this_pass
 
         if telemetry_sink is not None:
@@ -335,13 +337,11 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
                 
         yield (render_canvas, False)
     
-    if DEBUG_PERF:
-        final_coverage = (total_pixels_placed / total_mask_pixels) * 100
-        print(f"--- PLACEMENT COMPLETE --- Total Coverage: {final_coverage:.1f}% ({len(placements)} words placed)")
+    logger.info("--- PLACEMENT COMPLETE --- Total Coverage: %.1f%% (%d words placed)", total_pixels_placed / total_mask_pixels * 100, len(placements))
 
     # --- PHASE 2: HIGH-QUALITY RE-RENDER at final resolution ---
     rerender_start = time.time()
-    print(f"--- RE-RENDER PHASE: {final_w}x{final_h} ({len(placements)} words) ---")
+    logger.info("--- RE-RENDER PHASE: %dx%d (%d words) ---", final_w, final_h, len(placements))
 
     final_canvas = Image.new('RGBA', (final_w, final_h), bg)
     hq_dummy_draw = ImageDraw.Draw(Image.new('L', (1, 1)))
@@ -377,9 +377,8 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
         py = int((ly + wl_h / 2) * RENDER_SCALE * upscale - fh / 2)
         final_canvas.alpha_composite(txt_final_hq, (max(0, px), max(0, py)))
 
-    if DEBUG_PERF:
-        rerender_duration = (time.time() - rerender_start) * 1000
-        print(f"  [Re-render] {len(placements)} words in {rerender_duration:.0f}ms")
+    rerender_duration = (time.time() - rerender_start) * 1000
+    logger.info("  [Re-render] %d words in %.0fms", len(placements), rerender_duration)
 
     # --- ADD TESTING LEGEND (TOP-LEFT) ---
     if show_legend:
@@ -443,9 +442,8 @@ def process_image(image_data, words, color_scheme, background_color='transparent
         encoded = base64.b64encode(buf.read()).decode('utf-8')
         yield json.dumps({'result': f"data:{mime};base64,{encoded}"}) + '\n'
         
-        if DEBUG_PERF:
-            io_duration = (time.time() - io_start) * 1000
-            print(f"  [I/O Trace] Encode & Yield: {io_duration:.1f}ms ({'PNG' if is_final else 'JPEG'})")
+        io_duration = (time.time() - io_start) * 1000
+        logger.debug("  [I/O Trace] Encode & Yield: %.1fms (%s)", io_duration, 'PNG' if is_final else 'JPEG')
 
 @app.route('/')
 def index(): return send_from_directory('static', 'index.html')
@@ -467,16 +465,16 @@ def generate():
                 for json_chunk in process_image(image_data, words, color_scheme, background_color, threshold, invert, texture, custom_colors):
                     yield json_chunk
             except Exception as e:
-                import traceback; traceback.print_exc()
+                logger.exception("Error during image generation")
                 yield json.dumps({'error': str(e)}) + '\n'
         return Response(stream(), mimetype='application/x-ndjson')
     except Exception as e:
-        import traceback; traceback.print_exc()
+        logger.exception("Error in generate endpoint")
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/color-schemes', methods=['GET'])
 def get_color_schemes(): return jsonify(COLOR_SCHEMES)
 
 if __name__ == '__main__':
-    print("Starting Typographic Portrait Generator...")
+    logger.info("Starting Typographic Portrait Generator...")
     app.run(host='0.0.0.0', port=5000, debug=True, use_reloader=False)
