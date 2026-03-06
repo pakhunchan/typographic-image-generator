@@ -70,31 +70,6 @@ def get_font(size):
 def compute_integral_image(img):
     return img.cumsum(axis=0).cumsum(axis=1)
 
-def find_valid_positions_vectorized(integral_occupancy, integral_mask, width, height, word_w, word_h, mask_threshold=0.98):
-    if word_w <= 0 or word_h <= 0: return np.array([]), np.array([])
-    out_h, out_w = height - word_h + 1, width - word_w + 1
-    if out_h <= 0 or out_w <= 0: return np.array([]), np.array([])
-
-    i_occ_pad = np.pad(integral_occupancy, ((1,0), (1,0)), mode='constant', constant_values=0)
-    i_mask_pad = np.pad(integral_mask, ((1,0), (1,0)), mode='constant', constant_values=0)
-    
-    # Corners
-    br = i_occ_pad[word_h : word_h+out_h, word_w : word_w+out_w]
-    tr = i_occ_pad[0      : out_h,        word_w : word_w+out_w]
-    bl = i_occ_pad[word_h : word_h+out_h, 0      : out_w]
-    tl = i_occ_pad[0      : out_h,        0      : out_w]
-    occupancy_sums = br - tr - bl + tl
-    
-    br_m = i_mask_pad[word_h : word_h+out_h, word_w : word_w+out_w]
-    tr_m = i_mask_pad[0      : out_h,        word_w : word_w+out_w]
-    bl_m = i_mask_pad[word_h : word_h+out_h, 0      : out_w]
-    tl_m = i_mask_pad[0      : out_h,        0      : out_w]
-    mask_sums = br_m - tr_m - bl_m + tl_m
-    
-    required_mask_sum = (word_w * word_h) * mask_threshold
-    valid_grid = (occupancy_sums == 0) & (mask_sums >= required_mask_sum)
-    return np.nonzero(valid_grid)
-
 def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, texture='standard', telemetry_sink=None, show_legend=False):
     orig_w, orig_h = image.size
     start_total = time.time()
@@ -223,7 +198,6 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
         dirty_integral = True
         cached_integral_all, cached_integral_h, cached_integral_v = None, None, None
         
-        last_pass_pixels = pixels_placed_this_pass # Initialize for the pass
         dirty_render = False
 
         while pixels_placed_this_pass < target_pass_pixels:

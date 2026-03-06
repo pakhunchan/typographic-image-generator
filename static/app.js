@@ -321,17 +321,6 @@ function updateWordCount() {
     wordCount.textContent = `${total} word${total !== 1 ? 's' : ''}${featured > 0 ? ` (${featured} featured)` : ''}`;
 }
 
-// Auto-select is now less useful for rich editor but we can keep a simpler version
-function handleWordsFocus() {
-    if (wordsInput.innerText.trim() === "LOVE\nHAPPY\nFUN") {
-        const range = document.createRange();
-        range.selectNodeContents(wordsInput);
-        const selection = window.getSelection();
-        selection.removeAllRanges();
-        selection.addRange(range);
-    }
-}
-
 // Generate
 async function handleGenerate() {
     // Validation
