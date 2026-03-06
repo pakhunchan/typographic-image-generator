@@ -767,7 +767,7 @@ input[type="range"]::-moz-range-thumb {
     font-family: var(--font-display);
     font-size: 3.5rem;
     color: var(--ink-faint);
-    opacity: 0.4;
+    opacity: 0.7;
     user-select: none;
     line-height: 1;
 }
