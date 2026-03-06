@@ -71,12 +71,26 @@ function initCustomSelects() {
         const dropdown = document.createElement('div');
         dropdown.className = 'custom-select-dropdown';
 
+        const isColorSelect = nativeSelect.id === 'colorScheme';
+
         Array.from(nativeSelect.options).forEach(option => {
             const item = document.createElement('div');
             item.className = 'custom-select-option';
             item.dataset.value = option.value;
-            item.textContent = option.text;
             if (option.selected) item.classList.add('selected');
+
+            const text = document.createElement('span');
+            text.textContent = option.text;
+            item.appendChild(text);
+
+            // Add gradient bar for palette options
+            const colors = COLOR_SCHEMES[option.value];
+            if (isColorSelect && colors) {
+                const bar = document.createElement('span');
+                bar.className = 'option-gradient-bar';
+                bar.style.background = `linear-gradient(to right, ${colors.join(', ')})`;
+                item.appendChild(bar);
+            }
 
             item.addEventListener('click', (e) => {
                 e.stopPropagation();
