@@ -202,6 +202,10 @@ function handleThresholdChange() {
     thresholdValue.textContent = thresholdSlider.value + '%';
 }
 
+function parseCustomColors(input) {
+    return input.split(',').map(c => c.trim()).filter(c => c.startsWith('#'));
+}
+
 // Color scheme
 function handleColorSchemeChange() {
     const scheme = colorScheme.value;
@@ -220,7 +224,7 @@ function updateColorPreview() {
     if (scheme === 'custom') {
         const input = customColors.value.trim();
         if (input) {
-            colors = input.split(',').map(c => c.trim()).filter(c => c.startsWith('#'));
+            colors = parseCustomColors(input);
         } else {
             colors = ['#cccccc'];
         }
@@ -349,7 +353,7 @@ async function handleGenerate() {
         const scheme = colorScheme.value;
         let customColorsList = [];
         if (scheme === 'custom') {
-            customColorsList = customColors.value.split(',').map(c => c.trim()).filter(c => c.startsWith('#'));
+            customColorsList = parseCustomColors(customColors.value);
         }
 
         const response = await fetch('/api/generate', {

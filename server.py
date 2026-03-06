@@ -76,6 +76,25 @@ def get_font(size):
 def compute_integral_image(img):
     return img.cumsum(axis=0).cumsum(axis=1)
 
+def render_word_image(word, angle, font_size, color_rgb, dummy_draw):
+    """Render a word into a cropped RGBA image, optionally rotated. Returns None if empty."""
+    font = get_font(font_size)
+    bbox = dummy_draw.textbbox((0, 0), word, font=font, anchor='mm')
+    rw, rh = bbox[2] - bbox[0], bbox[3] - bbox[1]
+    tmp_dim = int(max(rw, rh) + 40)
+
+    txt_tmp = Image.new('RGBA', (tmp_dim, tmp_dim), (0, 0, 0, 0))
+    draw_tmp = ImageDraw.Draw(txt_tmp)
+    draw_tmp.text((tmp_dim / 2, tmp_dim / 2), word, font=font, anchor='mm', fill=color_rgb + (255,))
+
+    if angle == 90: txt_tmp = txt_tmp.transpose(Image.ROTATE_90)
+    elif angle == -90: txt_tmp = txt_tmp.transpose(Image.ROTATE_270)
+
+    ink_bbox = txt_tmp.getbbox()
+    if not ink_bbox:
+        return None
+    return txt_tmp.crop(ink_bbox)
+
 def place_words_dual_res(image, words, colors, background_color='transparent', threshold=128, invert=False, texture='standard', telemetry_sink=None, show_legend=False):
     orig_w, orig_h = image.size
     start_total = time.time()
@@ -223,23 +242,9 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
                 rfs = render_font_base
                 if is_feature and word in featured: rfs = int(render_font_base * 1.5)
 
-                # Fast 1x render for placement & preview (no supersampling)
-                font_preview = get_font(rfs)
-                bbox = dummy_draw.textbbox((0, 0), word, font=font_preview, anchor='mm')
-                rw_h, rh_h = bbox[2]-bbox[0], bbox[3]-bbox[1]
-                tmp_dim = int(max(rw_h, rh_h) + 40)
-
-                txt_tmp = Image.new('RGBA', (tmp_dim, tmp_dim), (0,0,0,0))
-                draw_tmp = ImageDraw.Draw(txt_tmp)
-                draw_tmp.text((tmp_dim/2, tmp_dim/2), word, font=font_preview, anchor='mm', fill=used_color+(255,))
-
-                if angle == 90: txt_tmp = txt_tmp.transpose(Image.ROTATE_90)
-                elif angle == -90: txt_tmp = txt_tmp.transpose(Image.ROTATE_270)
-
-                ink_bbox_h = txt_tmp.getbbox()
-                if not ink_bbox_h:
+                txt_final = render_word_image(word, angle, rfs, used_color, dummy_draw)
+                if txt_final is None:
                     consecutive_failures += 1; continue
-                txt_final = txt_tmp.crop(ink_bbox_h)
                 final_pw, final_ph = txt_final.size
                 
                 wl_w_base = int(np.ceil((final_pw + base_p * 2 * RENDER_SCALE) / RENDER_SCALE))
@@ -349,24 +354,9 @@ def place_words_dual_res(image, words, colors, background_color='transparent', t
     quality_scale = 2  # 2x supersample for crisp text
 
     for word, angle, lx, ly, wl_w, wl_h, rfs_preview, color_rgb in placements:
-        # Scale font size from preview to final resolution
         rfs_final = rfs_preview * upscale
-        font_hq = get_font(int(rfs_final * quality_scale))
-
-        bbox = hq_dummy_draw.textbbox((0, 0), word, font=font_hq, anchor='mm')
-        rw_h, rh_h = bbox[2] - bbox[0], bbox[3] - bbox[1]
-        tmp_dim = int(max(rw_h, rh_h) + 40)
-
-        txt_tmp = Image.new('RGBA', (tmp_dim, tmp_dim), (0, 0, 0, 0))
-        draw_tmp = ImageDraw.Draw(txt_tmp)
-        draw_tmp.text((tmp_dim / 2, tmp_dim / 2), word, font=font_hq, anchor='mm', fill=color_rgb + (255,))
-
-        if angle == 90: txt_tmp = txt_tmp.transpose(Image.ROTATE_90)
-        elif angle == -90: txt_tmp = txt_tmp.transpose(Image.ROTATE_270)
-
-        ink_bbox = txt_tmp.getbbox()
-        if not ink_bbox: continue
-        txt_hq = txt_tmp.crop(ink_bbox)
+        txt_hq = render_word_image(word, angle, int(rfs_final * quality_scale), color_rgb, hq_dummy_draw)
+        if txt_hq is None: continue
 
         # Downscale from quality_scale to final size
         hq_w, hq_h = txt_hq.size
