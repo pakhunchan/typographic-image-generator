@@ -48,10 +48,7 @@ function init() {
 
 // Event Listeners
 function setupEventListeners() {
-    // Upload zone interactions
-    // Stop propagation on imageInput so programmatic .click() doesn't bubble
-    // back up to uploadZone and create an infinite loop
-    imageInput.addEventListener('click', (e) => e.stopPropagation());
+    // Upload zone interactions (input is outside uploadZone to avoid click bubbling)
     uploadZone.addEventListener('click', () => imageInput.click());
     uploadZone.addEventListener('dragover', handleDragOver);
     uploadZone.addEventListener('dragleave', handleDragLeave);
@@ -378,26 +375,29 @@ function handleDownload() {
     }
 
     try {
-        console.log("Initiating download...");
         const fileName = `PHC_typographic_${originalFileName}.png`;
 
-        // Create a temporary link element
+        // Convert data URI to Blob for reliable downloads across browsers
+        const dataUri = resultImage.src;
+        const byteString = atob(dataUri.split(',')[1]);
+        const mimeType = dataUri.split(',')[0].split(':')[1].split(';')[0];
+        const ab = new ArrayBuffer(byteString.length);
+        const ia = new Uint8Array(ab);
+        for (let i = 0; i < byteString.length; i++) {
+            ia[i] = byteString.charCodeAt(i);
+        }
+        const blob = new Blob([ab], { type: mimeType });
+        const blobUrl = URL.createObjectURL(blob);
+
         const link = document.createElement('a');
-
-        // Direct Data URI approach - safer for small/medium images to avoid Blob quirks
-        link.href = resultImage.src;
+        link.href = blobUrl;
         link.download = fileName;
-
-        // Append to body
         document.body.appendChild(link);
-
-        // Trigger click
         link.click();
 
-        // Clean up with longer delay
         setTimeout(() => {
             document.body.removeChild(link);
-            console.log("Download cleanup complete");
+            URL.revokeObjectURL(blobUrl);
         }, 1000);
 
     } catch (error) {
