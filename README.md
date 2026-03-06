@@ -1,13 +1,18 @@
-# Typographic Portrait Generator
+# Typographic — Word Portrait Studio
 
-A typographic portrait generator that turns images into stunning typographic art. This tool fills your photos with high-density, custom text patterns, offering precise controls for contrast, color palettes, and word lists to generate clean, professional-grade word portraits.
+Transform photographs into beautiful typographic portraits. Upload any image and fill its silhouette with your own words.
+
+**Live demo**: [typographic.pakhunchan.com](https://typographic.pakhunchan.com)
 
 ## Features
 
-- **High-Density Text Filling**: Advanced algorithm places text horizontally and vertically (0°/90°) to strictly fill dark regions without overlap.
-- **Customizable Controls**: Adjust threshold, invert colors, select color palettes, and choose font sizes.
-- **Custom Text**: Use your own words and phrases. Prefix words with `*` to feature them (make them larger).
-- **Instant Preview**: Real-time browser-based UI.
+- **Two-Phase Rendering**: Fast 2048px placement with live streaming preview, then crisp 4096px final output with 2x supersampled text.
+- **Featured Words**: Mark words as "featured" to make them larger and more prominent in the portrait.
+- **Color Palettes**: Warm Red, Ocean Blue, Forest Green, Sunset, Monochrome, or define your own custom colors.
+- **Background Options**: Transparent (PNG), white, or black backgrounds.
+- **Density Control**: Fine, Regular, or Bold text density settings.
+- **Fill Threshold**: Adjustable slider to control how much of the image silhouette gets filled.
+- **Invert Mode**: Swap which regions of the image get filled with text.
 
 ## Getting Started
 
@@ -24,18 +29,26 @@ A typographic portrait generator that turns images into stunning typographic art
    pip install -r requirements.txt
    ```
 
-### Running the App
+### Running
 
-1. Start the server:
-   ```bash
-   python server.py
-   ```
-2. Open your browser to `http://localhost:5000`
+```bash
+python server.py
+```
 
-## Technologies
+Open `http://localhost:5000` in your browser.
 
-- **Backend**: Python, Flask, Pillow (PIL), NumPy
-- **Frontend**: HTML5, CSS3, JavaScript (Vanilla)
+## How It Works
+
+1. **Upload** a photo — the app converts it to a grayscale silhouette mask.
+2. **Add words** — mark some as "featured" (Ctrl+B) to make them larger.
+3. **Generate** — the engine places words in 7 font-size passes (18pt down to 3pt) using vectorized integral-image collision detection for fast, dense packing.
+4. **Download** — the final 4096px PNG with 2x supersampled text.
+
+## Tech Stack
+
+- **Backend**: Python, Flask, Pillow, NumPy
+- **Frontend**: Vanilla HTML/CSS/JS
+- **Deployment**: Vercel
 
 ## License
 
