@@ -180,6 +180,12 @@ body {
 
 /* ── Upload Zone ────────────────────────────── */
 
+@keyframes upload-blink {
+    0%, 4%   { border-color: var(--border); }
+    5%       { border-color: var(--accent); }
+    10%, 100% { border-color: var(--border); }
+}
+
 .upload-zone {
     border: 1.5px dashed var(--border);
     border-radius: var(--radius);
@@ -190,6 +196,11 @@ body {
     background: var(--bg-input);
     position: relative;
     overflow: hidden;
+    animation: upload-blink 5s ease-in-out infinite;
+}
+
+.upload-zone:has(.preview-image:not(.hidden)) {
+    animation: none;
 }
 
 .upload-zone:hover {
