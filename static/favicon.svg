@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&amp;display=swap');
+  </style>
+  <text x="16" y="24" font-family="'Cormorant Garamond', Georgia, serif" font-size="26" font-weight="600" fill="#c4bdb3" text-anchor="middle">Aa</text>
+</svg>
